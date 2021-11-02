@@ -3,9 +3,10 @@ import Benchmark from 'benchmark';
 import { loadTreeConstructionTestData } from '../../test/utils/generate-parsing-tests.js';
 import { loadSAXParserTestData } from '../../test/utils/load-sax-parser-test-data.js';
 import { treeAdapters, WritableStreamStub } from '../../test/utils/common.js';
-import parse5 from '../../packages/parse5/lib/index.js';
-import parse5Stream from '../../packages/parse5-parser-stream/lib/index.js';
+import * as parse5 from '../../packages/parse5/lib/index.js';
+import { ParserStream as parse5Stream } from '../../packages/parse5-parser-stream/lib/index.js';
 import parse5Upstream from 'parse5';
+import path from 'path';
 
 const hugePagePath = new URL('../../test/data/huge-page/huge-page.html', import.meta.url);
 const treeConstructionPath = new URL('../../test/data/html5lib-tests/tree-construction', import.meta.url);
@@ -52,7 +53,7 @@ global.runPages = function (parser) {
 };
 
 // Stream data
-global.files = readdirSync(saxPath).map((dirName) => new URL('./src.html', dirName).pathname);
+global.files = readdirSync(saxPath).map((dirName) => path.join(saxPath.pathname, dirName, './src.html'));
 
 // Utils
 function getHz(suite, testName) {
