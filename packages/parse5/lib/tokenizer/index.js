@@ -1,6 +1,6 @@
 import { Preprocessor } from './preprocessor.js';
 import * as unicode from '../common/unicode.js';
-import { namedEntityData as neTree } from './named-entity-data.js';
+import { htmlDecodeTree, BinTrieFlags, determineBranch } from 'entities/lib/decode.js';
 import { ERR } from '../common/error-codes.js';
 
 //Aliases
@@ -37,12 +37,6 @@ const C1_CONTROLS_REFERENCE_REPLACEMENTS = {
     0x9e: 0x017e,
     0x9f: 0x0178,
 };
-
-// Named entity tree flags
-const HAS_DATA_FLAG = 1 << 0;
-const DATA_DUPLET_FLAG = 1 << 1;
-const HAS_BRANCHES_FLAG = 1 << 2;
-const MAX_BRANCH_MARKER_VALUE = HAS_DATA_FLAG | DATA_DUPLET_FLAG | HAS_BRANCHES_FLAG;
 
 //States
 const DATA_STATE = 'DATA_STATE';
@@ -118,7 +112,7 @@ const CDATA_SECTION_BRACKET_STATE = 'CDATA_SECTION_BRACKET_STATE';
 const CDATA_SECTION_END_STATE = 'CDATA_SECTION_END_STATE';
 const CHARACTER_REFERENCE_STATE = 'CHARACTER_REFERENCE_STATE';
 const NAMED_CHARACTER_REFERENCE_STATE = 'NAMED_CHARACTER_REFERENCE_STATE';
-const AMBIGUOUS_AMPERSAND_STATE = 'AMBIGUOS_AMPERSAND_STATE';
+const AMBIGUOUS_AMPERSAND_STATE = 'AMBIGUOUS_AMPERSAND_STATE';
 const NUMERIC_CHARACTER_REFERENCE_STATE = 'NUMERIC_CHARACTER_REFERENCE_STATE';
 const HEXADEMICAL_CHARACTER_REFERENCE_START_STATE = 'HEXADEMICAL_CHARACTER_REFERENCE_START_STATE';
 const DECIMAL_CHARACTER_REFERENCE_START_STATE = 'DECIMAL_CHARACTER_REFERENCE_START_STATE';
@@ -173,27 +167,6 @@ function toAsciiLowerCodePoint(cp) {
 
 function toAsciiLowerChar(cp) {
     return String.fromCharCode(toAsciiLowerCodePoint(cp));
-}
-
-function findNamedEntityTreeBranch(nodeIx, cp) {
-    const branchCount = neTree[++nodeIx];
-    let lo = ++nodeIx;
-    let hi = lo + branchCount - 1;
-
-    while (lo <= hi) {
-        const mid = (lo + hi) >>> 1;
-        const midCp = neTree[mid];
-
-        if (midCp < cp) {
-            lo = mid + 1;
-        } else if (midCp > cp) {
-            hi = mid - 1;
-        } else {
-            return neTree[mid + branchCount];
-        }
-    }
-
-    return -1;
 }
 
 //Tokenizer
@@ -468,49 +441,6 @@ export class Tokenizer {
     //So we can avoid additional checks here.
     _emitChars(ch) {
         this._appendCharToCurrentCharacterToken(Tokenizer.CHARACTER_TOKEN, ch);
-    }
-
-    // Character reference helpers
-    _matchNamedCharacterReference(startCp) {
-        let result = null;
-        let excess = 1;
-        let i = findNamedEntityTreeBranch(0, startCp);
-
-        this.tempBuff.push(startCp);
-
-        while (i > -1) {
-            const current = neTree[i];
-            const inNode = current < MAX_BRANCH_MARKER_VALUE;
-            const nodeWithData = inNode && current & HAS_DATA_FLAG;
-
-            if (nodeWithData) {
-                //NOTE: we use greedy search, so we continue lookup at this point
-                result = current & DATA_DUPLET_FLAG ? [neTree[++i], neTree[++i]] : [neTree[++i]];
-                excess = 0;
-            }
-
-            const cp = this._consume();
-
-            this.tempBuff.push(cp);
-            excess++;
-
-            if (cp === $.EOF) {
-                break;
-            }
-
-            if (inNode) {
-                i = current & HAS_BRANCHES_FLAG ? findNamedEntityTreeBranch(i, cp) : -1;
-            } else {
-                i = cp === current ? ++i : -1;
-            }
-        }
-
-        while (excess--) {
-            this.tempBuff.pop();
-            this._unconsume();
-        }
-
-        return result;
     }
 
     _isCharacterReferenceInAttribute() {
@@ -1974,6 +1904,10 @@ export class Tokenizer {
             this.tempBuff.push(cp);
             this.state = NUMERIC_CHARACTER_REFERENCE_STATE;
         } else if (isAsciiAlphaNumeric(cp)) {
+            this.trieIndex = 0;
+            this.trieCurrent = htmlDecodeTree[0];
+            this.trieResult = null;
+            this.trieExcess = 0;
             this._reconsumeInState(NAMED_CHARACTER_REFERENCE_STATE);
         } else {
             this._flushCodePointsConsumedAsCharacterReference();
@@ -1984,13 +1918,33 @@ export class Tokenizer {
     // Named character reference state
     //------------------------------------------------------------------
     [NAMED_CHARACTER_REFERENCE_STATE](cp) {
-        const matchResult = this._matchNamedCharacterReference(cp);
+        this.tempBuff.push(cp);
+        this.trieExcess += 1;
 
-        //NOTE: matching can be abrupted by hibernation. In that case match
-        //results are no longer valid and we will need to start over.
-        if (this._ensureHibernation()) {
-            this.tempBuff = [$.AMPERSAND];
-        } else if (matchResult) {
+        this.trieIndex = determineBranch(htmlDecodeTree, this.trieCurrent, this.trieIndex + 1, cp);
+
+        if (this.trieIndex >= 0) {
+            this.trieCurrent = htmlDecodeTree[this.trieIndex];
+
+            // If the branch is a value, store it and continue
+            if (this.trieCurrent & BinTrieFlags.HAS_VALUE) {
+                // If this is a surrogate pair, combine the higher bits from the node with the next byte
+                this.trieResult =
+                    this.trieCurrent & BinTrieFlags.MULTI_BYTE
+                        ? [htmlDecodeTree[++this.trieIndex], htmlDecodeTree[++this.trieIndex]]
+                        : [htmlDecodeTree[++this.trieIndex]];
+                this.trieExcess = 0;
+            }
+
+            return;
+        }
+
+        while (this.trieExcess--) {
+            this.tempBuff.pop();
+            this._unconsume();
+        }
+
+        if (this.trieResult) {
             const withSemicolon = this.tempBuff[this.tempBuff.length - 1] === $.SEMICOLON;
 
             if (!this._isCharacterReferenceAttributeQuirk(withSemicolon)) {
@@ -1998,7 +1952,7 @@ export class Tokenizer {
                     this._errOnNextCodePoint(ERR.missingSemicolonAfterCharacterReference);
                 }
 
-                this.tempBuff = matchResult;
+                this.tempBuff = this.trieResult;
             }
 
             this._flushCodePointsConsumedAsCharacterReference();
