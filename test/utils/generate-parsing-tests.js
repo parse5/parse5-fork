@@ -8,16 +8,17 @@ import { parseDatFile } from '../../test/utils/parse-dat-file.js';
 export function loadTreeConstructionTestData(dataDirs, treeAdapter) {
     const tests = [];
 
-    dataDirs.forEach((dataDirPath) => {
+    dataDirs.forEach((dataDir) => {
+        const dataDirPath = typeof dataDir === 'string' ? dataDir : dataDir.pathname;
         const testSetFileNames = fs.readdirSync(dataDirPath);
-        const dirName = path.basename(dataDirPath.pathname);
+        const dirName = path.basename(dataDirPath);
 
         testSetFileNames.forEach((fileName) => {
             if (path.extname(fileName) !== '.dat') {
                 return;
             }
 
-            const filePath = path.join(dataDirPath.pathname, fileName);
+            const filePath = path.join(dataDirPath, fileName);
             const testSet = fs.readFileSync(filePath, 'utf-8');
             const setName = fileName.replace('.dat', '');
 
