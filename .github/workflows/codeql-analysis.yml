@@ -1,4 +1,4 @@
-name: "CodeQL"
+name: 'CodeQL'
 
 on:
     push:
@@ -7,7 +7,7 @@ on:
         # The branches below must be a subset of the branches above
         branches: [master]
     schedule:
-        - cron: "0 0 * * 0"
+        - cron: '0 0 * * 0'
 
 jobs:
     analyze:
@@ -21,11 +21,13 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v2
+              with:
+                  submodules: recursive
 
             - name: Initialize CodeQL
               uses: github/codeql-action/init@v1
               with:
-                  languages: "javascript"
+                  languages: 'javascript'
 
             - name: Perform CodeQL Analysis
               uses: github/codeql-action/analyze@v1
