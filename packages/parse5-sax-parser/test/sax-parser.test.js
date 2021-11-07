@@ -20,29 +20,29 @@ function createBasicTest(html, expected, options) {
         const parser = new SAXParser(options);
 
         parser.on('doctype', ({ name, publicId, systemId }) => {
-            actual += '<!DOCTYPE ' + name;
+            actual += `<!DOCTYPE ${name}`;
 
             if (publicId !== null) {
-                actual += ' PUBLIC "' + publicId + '"';
+                actual += ` PUBLIC "${publicId}"`;
             } else if (systemId !== null) {
                 actual += ' SYSTEM';
             }
 
             if (systemId !== null) {
-                actual += ' "' + systemId + '"';
+                actual += ` "${systemId}"`;
             }
 
             actual += '>';
         });
 
         parser.on('startTag', ({ tagName, attrs, selfClosing }) => {
-            actual += '<' + tagName;
-            actual += attrs.reduce((res, attr) => res + (' ' + attr.name + '="' + attr.value + '"'), '');
+            actual += `<${tagName}`;
+            actual += attrs.reduce((res, attr) => `${res} ${attr.name}="${attr.value}"`, '');
             actual += selfClosing ? '/>' : '>';
         });
 
         parser.on('endTag', ({ tagName }) => {
-            actual += '</' + tagName + '>';
+            actual += `</${tagName}>`;
         });
 
         parser.on('text', ({ text }) => {
@@ -50,7 +50,7 @@ function createBasicTest(html, expected, options) {
         });
 
         parser.on('comment', ({ text }) => {
-            actual += '<!--' + text + '-->';
+            actual += `<!--${text}-->`;
         });
 
         parser.once('finish', () => {

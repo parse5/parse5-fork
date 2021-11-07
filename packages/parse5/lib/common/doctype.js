@@ -109,13 +109,13 @@ export function getDocumentMode(token) {
         return DOCUMENT_MODE.QUIRKS;
     }
 
-    const systemId = token.systemId;
+    const { systemId } = token;
 
     if (systemId && systemId.toLowerCase() === QUIRKS_MODE_SYSTEM_ID) {
         return DOCUMENT_MODE.QUIRKS;
     }
 
-    let publicId = token.publicId;
+    let { publicId } = token;
 
     if (publicId !== null) {
         publicId = publicId.toLowerCase();
@@ -149,13 +149,13 @@ export function serializeContent(name, publicId, systemId) {
     }
 
     if (publicId) {
-        str += ' PUBLIC ' + enquoteDoctypeId(publicId);
+        str += ` PUBLIC ${enquoteDoctypeId(publicId)}`;
     } else if (systemId) {
         str += ' SYSTEM';
     }
 
     if (systemId !== null) {
-        str += ' ' + enquoteDoctypeId(systemId);
+        str += ` ${enquoteDoctypeId(systemId)}`;
     }
 
     return str;

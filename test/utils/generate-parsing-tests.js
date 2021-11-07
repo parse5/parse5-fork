@@ -40,10 +40,10 @@ function prettyPrintParserAssertionArgs(actual, expected, chunks) {
     let msg = '\nExpected:\n';
 
     msg += '-----------------\n';
-    msg += expected + '\n';
+    msg += `${expected}\n`;
     msg += '\nActual:\n';
     msg += '-----------------\n';
-    msg += actual + '\n';
+    msg += `${actual}\n`;
 
     if (chunks) {
         msg += 'Chunks:\n';

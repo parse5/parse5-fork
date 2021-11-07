@@ -27,13 +27,13 @@ class Node {
     }
 
     get firstChild() {
-        const children = this.children;
+        const { children } = this;
 
         return (children && children[0]) || null;
     }
 
     get lastChild() {
-        const children = this.children;
+        const { children } = this;
 
         return (children && children[children.length - 1]) || null;
     }
@@ -142,7 +142,7 @@ export function appendChild(parentNode, newNode) {
 
 export function insertBefore(parentNode, newNode, referenceNode) {
     const insertionIdx = parentNode.children.indexOf(referenceNode);
-    const prev = referenceNode.prev;
+    const { prev } = referenceNode;
 
     if (prev) {
         prev.next = newNode;
@@ -199,8 +199,7 @@ export function getDocumentMode(document) {
 export function detachNode(node) {
     if (node.parent) {
         const idx = node.parent.children.indexOf(node);
-        const prev = node.prev;
-        const next = node.next;
+        const { prev, next } = node;
 
         node.prev = null;
         node.next = null;

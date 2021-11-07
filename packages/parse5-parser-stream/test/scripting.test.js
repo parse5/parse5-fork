@@ -19,7 +19,7 @@ generateParsingTests(
     async (test, opts) => {
         const chunks = makeChunks(test.input);
         const parser = new ParserStream(opts);
-        const document = parser.document;
+        const { document } = parser;
 
         const completionPromise = new Promise((resolve, reject) => {
             parser.once('finish', () => resolve({ node: document }));

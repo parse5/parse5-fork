@@ -28,7 +28,7 @@ export class FormattingElementList {
                     break;
                 }
 
-                const element = entry.element;
+                const { element } = entry;
                 const elementAttrs = this.treeAdapter.getAttrList(element);
 
                 const isCandidate =

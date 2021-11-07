@@ -15,7 +15,7 @@ export class RewritingStream extends SAXParser {
     }
 
     _getRawHtml(location) {
-        const droppedBufferSize = this.posTracker.droppedBufferSize;
+        const { droppedBufferSize } = this.posTracker;
         const start = location.startOffset - droppedBufferSize;
         const end = location.endOffset - droppedBufferSize;
 
