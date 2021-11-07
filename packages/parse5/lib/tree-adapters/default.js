@@ -65,14 +65,7 @@ export function getTemplateContent(templateElement) {
 }
 
 export function setDocumentType(document, name, publicId, systemId) {
-    let doctypeNode = null;
-
-    for (let i = 0; i < document.childNodes.length; i++) {
-        if (document.childNodes[i].nodeName === '#documentType') {
-            doctypeNode = document.childNodes[i];
-            break;
-        }
-    }
+    const doctypeNode = document.childNodes.find((node) => node.nodeName === '#documentType');
 
     if (doctypeNode) {
         doctypeNode.name = name;
@@ -129,14 +122,10 @@ export function insertTextBefore(parentNode, text, referenceNode) {
 }
 
 export function adoptAttributes(recipient, attrs) {
-    const recipientAttrsMap = [];
-
-    for (let i = 0; i < recipient.attrs.length; i++) {
-        recipientAttrsMap.push(recipient.attrs[i].name);
-    }
+    const recipientAttrsMap = new Set(recipient.attrs.map((attr) => attr.name));
 
     for (let j = 0; j < attrs.length; j++) {
-        if (recipientAttrsMap.indexOf(attrs[j].name) === -1) {
+        if (!recipientAttrsMap.has(attrs[j].name)) {
             recipient.attrs.push(attrs[j]);
         }
     }
