@@ -86,13 +86,7 @@ function enquoteDoctypeId(id) {
 }
 
 function hasPrefix(publicId, prefixes) {
-    for (let i = 0; i < prefixes.length; i++) {
-        if (publicId.startsWith(prefixes[i])) {
-            return true;
-        }
-    }
-
-    return false;
+    return prefixes.some((prefix) => publicId.startsWith(prefix));
 }
 
 //API
