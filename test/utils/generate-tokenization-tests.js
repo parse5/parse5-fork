@@ -130,9 +130,7 @@ function appendTokenEntry(result, tokenEntry) {
 function concatCharacterTokens(tokenEntries) {
     const result = [];
 
-    tokenEntries.forEach((tokenEntry) => {
-        appendTokenEntry(result, tokenEntry);
-    });
+    tokenEntries.forEach((tokenEntry) => appendTokenEntry(result, tokenEntry));
 
     return result;
 }
@@ -171,13 +169,7 @@ function loadTests(dataDirPath) {
                 unescapeDescrIO(descr);
             }
 
-            const expected = [];
-
-            descr.output.forEach((tokenEntry) => {
-                if (tokenEntry !== 'ParseError') {
-                    expected.push(tokenEntry);
-                }
-            });
+            const expected = descr.output.filter((tokenEntry) => tokenEntry !== 'ParseError');
 
             descr.initialStates.forEach((initialState) => {
                 tests.push({
