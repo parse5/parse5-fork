@@ -171,18 +171,6 @@ function toAsciiLowerCodePoint(cp) {
     return cp + 0x0020;
 }
 
-//NOTE: String.fromCharCode() function can handle only characters from BMP subset.
-//So, we need to workaround this manually.
-//(see: https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/String/fromCharCode#Getting_it_to_work_with_higher_values)
-function toChar(cp) {
-    if (cp <= 0xffff) {
-        return String.fromCharCode(cp);
-    }
-
-    cp -= 0x10000;
-    return String.fromCharCode(((cp >>> 10) & 0x3ff) | 0xd800) + String.fromCharCode(0xdc00 | (cp & 0x3ff));
-}
-
 function toAsciiLowerChar(cp) {
     return String.fromCharCode(toAsciiLowerCodePoint(cp));
 }
@@ -467,7 +455,7 @@ export class Tokenizer {
             type = Tokenizer.NULL_CHARACTER_TOKEN;
         }
 
-        this._appendCharToCurrentCharacterToken(type, toChar(cp));
+        this._appendCharToCurrentCharacterToken(type, String.fromCodePoint(cp));
     }
 
     _emitSeveralCodePoints(codePoints) {
@@ -547,9 +535,7 @@ export class Tokenizer {
 
     _flushCodePointsConsumedAsCharacterReference() {
         if (this._isCharacterReferenceInAttribute()) {
-            for (let i = 0; i < this.tempBuff.length; i++) {
-                this.currentAttr.value += toChar(this.tempBuff[i]);
-            }
+            this.currentAttr.value += String.fromCodePoint(...this.tempBuff);
         } else {
             this._emitSeveralCodePoints(this.tempBuff);
         }
@@ -712,7 +698,7 @@ export class Tokenizer {
             this._err(ERR.eofInTag);
             this._emitEOFToken();
         } else {
-            this.currentToken.tagName += toChar(cp);
+            this.currentToken.tagName += String.fromCodePoint(cp);
         }
     }
 
@@ -747,7 +733,7 @@ export class Tokenizer {
             this.currentToken.tagName += toAsciiLowerChar(cp);
             this.tempBuff.push(cp);
         } else if (isAsciiLower(cp)) {
-            this.currentToken.tagName += toChar(cp);
+            this.currentToken.tagName += String.fromCodePoint(cp);
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === this.currentToken.tagName) {
@@ -805,7 +791,7 @@ export class Tokenizer {
             this.currentToken.tagName += toAsciiLowerChar(cp);
             this.tempBuff.push(cp);
         } else if (isAsciiLower(cp)) {
-            this.currentToken.tagName += toChar(cp);
+            this.currentToken.tagName += String.fromCodePoint(cp);
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === this.currentToken.tagName) {
@@ -866,7 +852,7 @@ export class Tokenizer {
             this.currentToken.tagName += toAsciiLowerChar(cp);
             this.tempBuff.push(cp);
         } else if (isAsciiLower(cp)) {
-            this.currentToken.tagName += toChar(cp);
+            this.currentToken.tagName += String.fromCodePoint(cp);
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === this.currentToken.tagName) {
@@ -1009,7 +995,7 @@ export class Tokenizer {
             this.currentToken.tagName += toAsciiLowerChar(cp);
             this.tempBuff.push(cp);
         } else if (isAsciiLower(cp)) {
-            this.currentToken.tagName += toChar(cp);
+            this.currentToken.tagName += String.fromCodePoint(cp);
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === this.currentToken.tagName) {
@@ -1184,12 +1170,12 @@ export class Tokenizer {
             this.currentAttr.name += toAsciiLowerChar(cp);
         } else if (cp === $.QUOTATION_MARK || cp === $.APOSTROPHE || cp === $.LESS_THAN_SIGN) {
             this._err(ERR.unexpectedCharacterInAttributeName);
-            this.currentAttr.name += toChar(cp);
+            this.currentAttr.name += String.fromCodePoint(cp);
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
             this.currentAttr.name += unicode.REPLACEMENT_CHARACTER;
         } else {
-            this.currentAttr.name += toChar(cp);
+            this.currentAttr.name += String.fromCodePoint(cp);
         }
     }
 
@@ -1251,7 +1237,7 @@ export class Tokenizer {
             this._err(ERR.eofInTag);
             this._emitEOFToken();
         } else {
-            this.currentAttr.value += toChar(cp);
+            this.currentAttr.value += String.fromCodePoint(cp);
         }
     }
 
@@ -1270,7 +1256,7 @@ export class Tokenizer {
             this._err(ERR.eofInTag);
             this._emitEOFToken();
         } else {
-            this.currentAttr.value += toChar(cp);
+            this.currentAttr.value += String.fromCodePoint(cp);
         }
     }
 
@@ -1296,12 +1282,12 @@ export class Tokenizer {
             cp === $.GRAVE_ACCENT
         ) {
             this._err(ERR.unexpectedCharacterInUnquotedAttributeValue);
-            this.currentAttr.value += toChar(cp);
+            this.currentAttr.value += String.fromCodePoint(cp);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInTag);
             this._emitEOFToken();
         } else {
-            this.currentAttr.value += toChar(cp);
+            this.currentAttr.value += String.fromCodePoint(cp);
         }
     }
 
@@ -1353,7 +1339,7 @@ export class Tokenizer {
             this._err(ERR.unexpectedNullCharacter);
             this.currentToken.data += unicode.REPLACEMENT_CHARACTER;
         } else {
-            this.currentToken.data += toChar(cp);
+            this.currentToken.data += String.fromCodePoint(cp);
         }
     }
 
@@ -1434,7 +1420,7 @@ export class Tokenizer {
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
-            this.currentToken.data += toChar(cp);
+            this.currentToken.data += String.fromCodePoint(cp);
         }
     }
 
@@ -1582,7 +1568,7 @@ export class Tokenizer {
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
-            this._createDoctypeToken(toChar(cp));
+            this._createDoctypeToken(String.fromCodePoint(cp));
             this.state = DOCTYPE_NAME_STATE;
         }
     }
@@ -1606,7 +1592,7 @@ export class Tokenizer {
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
-            this.currentToken.name += toChar(cp);
+            this.currentToken.name += String.fromCodePoint(cp);
         }
     }
 
@@ -1718,7 +1704,7 @@ export class Tokenizer {
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
-            this.currentToken.publicId += toChar(cp);
+            this.currentToken.publicId += String.fromCodePoint(cp);
         }
     }
 
@@ -1741,7 +1727,7 @@ export class Tokenizer {
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
-            this.currentToken.publicId += toChar(cp);
+            this.currentToken.publicId += String.fromCodePoint(cp);
         }
     }
 
@@ -1880,7 +1866,7 @@ export class Tokenizer {
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
-            this.currentToken.systemId += toChar(cp);
+            this.currentToken.systemId += String.fromCodePoint(cp);
         }
     }
 
@@ -1903,7 +1889,7 @@ export class Tokenizer {
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
-            this.currentToken.systemId += toChar(cp);
+            this.currentToken.systemId += String.fromCodePoint(cp);
         }
     }
 
@@ -2028,7 +2014,7 @@ export class Tokenizer {
     [AMBIGUOUS_AMPERSAND_STATE](cp) {
         if (isAsciiAlphaNumeric(cp)) {
             if (this._isCharacterReferenceInAttribute()) {
-                this.currentAttr.value += toChar(cp);
+                this.currentAttr.value += String.fromCodePoint(cp);
             } else {
                 this._emitCodePoint(cp);
             }
