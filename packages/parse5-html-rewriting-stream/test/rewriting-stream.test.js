@@ -230,7 +230,7 @@ suite('RewritingStream', () => {
         `,
             assignTokenHandlers: (rewriter) => {
                 const rewriteRaw = (_, raw) => {
-                    rewriter.emitRaw(raw + '42');
+                    rewriter.emitRaw(`${raw}42`);
                 };
 
                 rewriter

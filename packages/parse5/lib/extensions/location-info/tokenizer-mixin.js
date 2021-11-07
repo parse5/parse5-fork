@@ -28,8 +28,7 @@ export class LocationInfoTokenizerMixin extends Mixin {
         this.currentAttrLocation.endCol = this.posTracker.col;
         this.currentAttrLocation.endOffset = this.posTracker.offset;
 
-        const currentToken = this.tokenizer.currentToken;
-        const currentAttr = this.tokenizer.currentAttr;
+        const { currentToken, currentAttr } = this.tokenizer;
 
         if (!currentToken.location.attrs) {
             currentToken.location.attrs = Object.create(null);

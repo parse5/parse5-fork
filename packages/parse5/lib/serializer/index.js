@@ -59,7 +59,7 @@ export class Serializer {
         const tn = this.treeAdapter.getTagName(node);
         const ns = this.treeAdapter.getNamespaceURI(node);
 
-        this.html += '<' + tn;
+        this.html += `<${tn}`;
         this._serializeAttributes(node);
         this.html += '>';
 
@@ -87,7 +87,7 @@ export class Serializer {
                 tn === $.TEMPLATE && ns === NS.HTML ? this.treeAdapter.getTemplateContent(node) : node;
 
             this._serializeChildNodes(childNodesHolder);
-            this.html += '</' + tn + '>';
+            this.html += `</${tn}>`;
         }
     }
 
@@ -100,7 +100,7 @@ export class Serializer {
             if (!attr.namespace) {
                 this.html += attr.name;
             } else if (attr.namespace === NS.XML) {
-                this.html += 'xml:' + attr.name;
+                this.html += `xml:${attr.name}`;
             } else if (attr.namespace === NS.XMLNS) {
                 if (attr.name !== 'xmlns') {
                     this.html += 'xmlns:';
@@ -108,12 +108,12 @@ export class Serializer {
 
                 this.html += attr.name;
             } else if (attr.namespace === NS.XLINK) {
-                this.html += 'xlink:' + attr.name;
+                this.html += `xlink:${attr.name}`;
             } else {
-                this.html += attr.prefix + ':' + attr.name;
+                this.html += `${attr.prefix}:${attr.name}`;
             }
 
-            this.html += '="' + value + '"';
+            this.html += `="${value}"`;
         }
     }
 
@@ -143,13 +143,13 @@ export class Serializer {
     }
 
     _serializeCommentNode(node) {
-        this.html += '<!--' + this.treeAdapter.getCommentNodeContent(node) + '-->';
+        this.html += `<!--${this.treeAdapter.getCommentNodeContent(node)}-->`;
     }
 
     _serializeDocumentTypeNode(node) {
         const name = this.treeAdapter.getDocumentTypeNodeName(node);
 
-        this.html += '<' + doctype.serializeContent(name, null, null) + '>';
+        this.html += `<${doctype.serializeContent(name, null, null)}>`;
     }
 }
 

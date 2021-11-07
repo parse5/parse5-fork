@@ -13,7 +13,15 @@
         "prefer-arrow-callback": "error",
         "one-var": ["error", "never"],
         "no-var": "error",
-        "prefer-const": "error"
+        "prefer-const": "error",
+        "prefer-destructuring": [
+            "error",
+            {
+                "object": true,
+                "array": false
+            }
+        ],
+        "prefer-template": "error"
     },
     "parserOptions": {
         "sourceType": "module"

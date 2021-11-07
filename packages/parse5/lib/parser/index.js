@@ -15,7 +15,7 @@ import * as HTML from '../common/html.js';
 //Aliases
 const $ = HTML.TAG_NAMES;
 const NS = HTML.NAMESPACES;
-const ATTRS = HTML.ATTRS;
+const { ATTRS } = HTML;
 
 const DEFAULT_OPTIONS = {
     scriptingEnabled: true,
@@ -991,7 +991,7 @@ function aaInsertLastNodeInCommonAncestor(p, commonAncestor, lastElement) {
 //Steps 15-19 of the algorithm
 function aaReplaceFormattingElement(p, furthestBlock, formattingElementEntry) {
     const ns = p.treeAdapter.getNamespaceURI(formattingElementEntry.element);
-    const token = formattingElementEntry.token;
+    const { token } = formattingElementEntry;
     const newElement = p.treeAdapter.createElement(token.tagName, ns, token.attrs);
 
     p._adoptNodes(furthestBlock, newElement);
@@ -1900,7 +1900,7 @@ function addressEndTagInBody(p, token) {
 
 function formEndTagInBody(p) {
     const inTemplate = p.openElements.tmplCount > 0;
-    const formElement = p.formElement;
+    const { formElement } = p;
 
     if (!inTemplate) {
         p.formElement = null;

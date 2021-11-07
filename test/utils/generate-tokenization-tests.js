@@ -39,7 +39,7 @@ export function convertTokenToHtml5Lib(token) {
             return ['DOCTYPE', token.name, token.publicId, token.systemId, !token.forceQuirks];
 
         default:
-            throw new TypeError('Unrecognized token type: ' + token.type);
+            throw new TypeError(`Unrecognized token type: ${token.type}`);
     }
 }
 
@@ -197,7 +197,7 @@ export function generateTokenizationTests(name, prefix, testSuite, createTokenSo
             const chunks = makeChunks(testData.input);
             const result = tokenize(createTokenSource, chunks, testData.initialState, testData.lastStartTag);
 
-            assert.deepEqual(result.tokens, testData.expected, 'Chunks: ' + JSON.stringify(chunks));
+            assert.deepEqual(result.tokens, testData.expected, `Chunks: ${JSON.stringify(chunks)}`);
             assert.deepEqual(result.errors, testData.expectedErrors || []);
         });
     });

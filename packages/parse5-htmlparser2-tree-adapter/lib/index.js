@@ -61,7 +61,7 @@ export function appendChild(parentNode, newNode) {
 
 export function insertBefore(parentNode, newNode, referenceNode) {
     const insertionIdx = parentNode.children.indexOf(referenceNode);
-    const prev = referenceNode.prev;
+    const { prev } = referenceNode;
 
     if (prev) {
         prev.next = newNode;
@@ -112,8 +112,7 @@ export function getDocumentMode(document) {
 export function detachNode(node) {
     if (node.parent) {
         const idx = node.parent.children.indexOf(node);
-        const prev = node.prev;
-        const next = node.next;
+        const { prev, next } = node;
 
         node.prev = null;
         node.next = null;

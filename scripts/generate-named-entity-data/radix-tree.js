@@ -91,7 +91,7 @@ export class RadixTree {
     //
     //
     static _branchEdgeWithNewData(edge, commonPrefix, newDataKey, oldNodeKey, newDataSuffix, oldNodeSuffix, data) {
-        const node = edge.node;
+        const { node } = edge;
         const newDataNode = new Node(data);
         const branchNode = RadixTree._shortenEdgeAndAddNewNode(edge, commonPrefix, null);
 
@@ -113,7 +113,7 @@ export class RadixTree {
     //
     //
     static _splitEdgeWithNewData(edge, commonPrefix, oldNodeKey, oldNodeSuffix, data) {
-        const node = edge.node;
+        const { node } = edge;
         const splitNode = RadixTree._shortenEdgeAndAddNewNode(edge, commonPrefix, data);
 
         splitNode.addEdge(oldNodeKey, oldNodeSuffix, node);
@@ -121,7 +121,7 @@ export class RadixTree {
 
     static _tryAddDataIntoEdge(edge, cps, i, data) {
         const commonPrefix = [];
-        const filter = edge.filter;
+        const { filter } = edge;
 
         for (let j = 0; j < filter.length; j++, i++) {
             const filterCp = filter[j];
