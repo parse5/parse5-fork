@@ -2645,8 +2645,13 @@ function endTagInRow(p, token) {
             p._processToken(token);
         }
     } else if (
-        (tn !== $.BODY && tn !== $.CAPTION && tn !== $.COL && tn !== $.COLGROUP) ||
-        (tn !== $.HTML && tn !== $.TD && tn !== $.TH)
+        tn !== $.BODY &&
+        tn !== $.CAPTION &&
+        tn !== $.COL &&
+        tn !== $.COLGROUP &&
+        tn !== $.HTML &&
+        tn !== $.TD &&
+        tn !== $.TH
     ) {
         endTagInTable(p, token);
     }
