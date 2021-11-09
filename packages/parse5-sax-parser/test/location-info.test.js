@@ -3,8 +3,8 @@ import { SAXParser } from '../lib/index.js';
 import { loadSAXParserTestData } from '../../../test/utils/load-sax-parser-test-data.js';
 import { writeChunkedToStream } from '../../../test/utils/common.js';
 
-suite('location-info', () => {
-    test('Location info (SAX)', () => {
+describe('location-info', () => {
+    it('Location info (SAX)', () => {
         loadSAXParserTestData().forEach((test) => {
             //NOTE: we've already tested the correctness of the location info with the Tokenizer tests.
             //So here we just check that SAXParser provides this info in the handlers.
@@ -28,7 +28,7 @@ suite('location-info', () => {
         });
     });
 
-    test('Regression - location info for text (GH-153, GH-266)', () => {
+    it('Regression - location info for text (GH-153, GH-266)', () => {
         const html = '<!DOCTYPE html><html><head><title>Here is a title</title></html>';
         const parser = new SAXParser({ sourceCodeLocationInfo: true });
 
