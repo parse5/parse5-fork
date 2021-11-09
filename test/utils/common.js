@@ -87,7 +87,7 @@ export function writeChunkedToStream(str, stream) {
 }
 
 export function generateTestsForEachTreeAdapter(name, ctor) {
-    suite(name, () => {
+    describe(name, () => {
         Object.keys(treeAdapters).forEach((adapterName) => {
             const tests = {};
             const adapter = treeAdapters[adapterName];
@@ -95,7 +95,7 @@ export function generateTestsForEachTreeAdapter(name, ctor) {
             ctor(tests, adapter);
 
             Object.keys(tests).forEach((testName) => {
-                test(`Tree adapter: ${adapterName} - ${testName}`, tests[testName]);
+                it(`Tree adapter: ${adapterName} - ${testName}`, tests[testName]);
             });
         });
     });
