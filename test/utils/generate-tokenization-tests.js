@@ -1,4 +1,4 @@
-import assert from 'assert';
+import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Tokenizer } from '../../packages/parse5/lib/tokenizer/index.js';

@@ -1,4 +1,4 @@
-import assert from 'assert';
+import * as assert from 'assert';
 import * as fs from 'fs';
 import { SAXParser } from '../lib/index.js';
 import { loadSAXParserTestData } from '../../../test/utils/load-sax-parser-test-data.js';
@@ -9,11 +9,11 @@ import {
     WritableStreamStub,
 } from '../../../test/utils/common.js';
 
-function sanitizeForComparison(str) {
+function sanitizeForComparison(str: string) {
     return removeNewLines(str).replace(/\s/g, '').replace(/'/g, '"').toLowerCase();
 }
 
-function createBasicTest(html, expected, options) {
+function createBasicTest(html: string, expected: string, options?: any) {
     return function () {
         //NOTE: the idea of the test is to serialize back given HTML using SAXParser handlers
         let actual = '';
@@ -37,7 +37,10 @@ function createBasicTest(html, expected, options) {
 
         parser.on('startTag', ({ tagName, attrs, selfClosing }) => {
             actual += `<${tagName}`;
-            actual += attrs.reduce((res, attr) => `${res} ${attr.name}="${attr.value}"`, '');
+            actual += attrs.reduce(
+                (res: string, attr: { name: string; value: string }) => `${res} ${attr.name}="${attr.value}"`,
+                ''
+            );
             actual += selfClosing ? '/>' : '>';
         });
 
@@ -70,7 +73,7 @@ const hugePage = new URL('../../../test/data/huge-page/huge-page.html', import.m
 describe('SAX parser', () => {
     //Basic tests
     loadSAXParserTestData().forEach((data, idx) =>
-        it(`${idx + 1}.${data.name}`, createBasicTest(data.src, data.expected, data.options))
+        it(`${idx + 1}.${data.name}`, createBasicTest(data.src, data.expected))
     );
 
     it('Piping and .stop()', (done) => {

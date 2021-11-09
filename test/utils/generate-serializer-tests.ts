@@ -1,11 +1,15 @@
-import assert from 'assert';
+import * as assert from 'assert';
 import * as fs from 'fs';
 import * as parse5 from '../../packages/parse5/lib/index.js';
 import { generateTestsForEachTreeAdapter, getStringDiffMsg } from './common.js';
 
-export function generateSeriliazerTests(name, prefix, serialize) {
-    const data = fs.readFileSync(new URL('../data/serialization/tests.json', import.meta.url));
-    const tests = JSON.parse(data);
+export function generateSerializerTests(name: string, prefix: string, serialize: any) {
+    const data = fs.readFileSync(new URL('../data/serialization/tests.json', import.meta.url), 'utf-8');
+    const tests = JSON.parse(data) as {
+        name: string;
+        input: string;
+        expected: string;
+    }[];
 
     generateTestsForEachTreeAdapter(name, (_test, treeAdapter) => {
         tests.forEach((test, idx) => {

@@ -1,4 +1,4 @@
-import assert from 'assert';
+import * as assert from 'assert';
 import { Node } from './tree-node.js';
 
 const HAS_DATA_FLAG = 1 << 0;

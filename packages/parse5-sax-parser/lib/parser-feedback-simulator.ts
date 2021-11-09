@@ -1,4 +1,5 @@
 import { Tokenizer } from 'parse5/lib/tokenizer/index.js';
+import type { Token, TagToken } from 'parse5/lib/common/token.js';
 import * as foreignContent from 'parse5/lib/common/foreign-content.js';
 import * as unicode from 'parse5/lib/common/unicode.js';
 import * as HTML from 'parse5/lib/common/html.js';
@@ -10,16 +11,18 @@ const NS = HTML.NAMESPACES;
 //ParserFeedbackSimulator
 //Simulates adjustment of the Tokenizer which performed by standard parser during tree construction.
 export class ParserFeedbackSimulator {
-    constructor(tokenizer) {
-        this.tokenizer = tokenizer;
+    namespaceStack: string[] = [];
+    namespaceStackTop = -1;
+    inForeignContent = false;
+    currentNamespace = '';
+    skipNextNewLine = false;
 
-        this.namespaceStack = [];
-        this.namespaceStackTop = -1;
+    constructor(private tokenizer: Tokenizer) {
         this._enterNamespace(NS.HTML);
     }
 
-    getNextToken() {
-        const token = this.tokenizer.getNextToken();
+    getNextToken(): Token {
+        const token = this.tokenizer.getNextToken()!;
 
         if (token.type === Tokenizer.START_TAG_TOKEN) {
             this._handleStartTagToken(token);
@@ -46,7 +49,7 @@ export class ParserFeedbackSimulator {
     }
 
     //Namespace stack mutations
-    _enterNamespace(namespace) {
+    _enterNamespace(namespace: string) {
         this.namespaceStackTop++;
         this.namespaceStack.push(namespace);
 
@@ -65,7 +68,7 @@ export class ParserFeedbackSimulator {
     }
 
     //Token handlers
-    _ensureTokenizerMode(tn) {
+    _ensureTokenizerMode(tn: string) {
         if (tn === $.TEXTAREA || tn === $.TITLE) {
             this.tokenizer.state = Tokenizer.MODE.RCDATA;
         } else if (tn === $.PLAINTEXT) {
@@ -84,7 +87,7 @@ export class ParserFeedbackSimulator {
         }
     }
 
-    _handleStartTagToken(token) {
+    _handleStartTagToken(token: TagToken) {
         let tn = token.tagName;
 
         if (tn === $.SVG) {
@@ -126,7 +129,7 @@ export class ParserFeedbackSimulator {
         }
     }
 
-    _handleEndTagToken(token) {
+    _handleEndTagToken(token: TagToken) {
         let tn = token.tagName;
 
         if (!this.inForeignContent) {

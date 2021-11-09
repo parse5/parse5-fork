@@ -1,6 +1,6 @@
 import { Preprocessor } from './preprocessor.js';
 import * as unicode from '../common/unicode.js';
-import { TokenType, Token, CharacterToken, DoctypeToken, TagToken, CommentToken } from '../common/token.js';
+import { TokenType, Token, CharacterToken, DoctypeToken, TagToken, CommentToken, Attribute } from '../common/token.js';
 import { namedEntityData as neTree } from './named-entity-data.js';
 import { ERR } from '../common/error-codes.js';
 
@@ -219,7 +219,7 @@ export class Tokenizer {
 
     currentCharacterToken: CharacterToken | null = null;
     currentToken: Token | null = null;
-    currentAttr = { name: '', value: '' };
+    currentAttr: Attribute = { name: '', value: '' };
 
     //Errors
     _err(_err: string) {
@@ -1739,8 +1739,6 @@ export class Tokenizer {
             return;
         }
 
-        const token = this.currentToken as DoctypeToken;
-
         if (isAsciiUpper(cp)) {
             this._createDoctypeToken(toAsciiLowerChar(cp));
             this.state = State.DOCTYPE_NAME;
@@ -1751,13 +1749,13 @@ export class Tokenizer {
         } else if (cp === $.GREATER_THAN_SIGN) {
             this._err(ERR.missingDoctypeName);
             this._createDoctypeToken(null);
-            token.forceQuirks = true;
+            (this.currentToken as DoctypeToken).forceQuirks = true;
             this._emitCurrentToken();
             this.state = State.DATA;
         } else if (cp === $.EOF) {
             this._err(ERR.eofInDoctype);
             this._createDoctypeToken(null);
-            token.forceQuirks = true;
+            (this.currentToken as DoctypeToken).forceQuirks = true;
             this._emitCurrentToken();
             this._emitEOFToken();
         } else {
@@ -2345,15 +2343,15 @@ export class Tokenizer {
 
     //Token types
     // TODO Remove in favour of enum
-    static CHARACTER_TOKEN = TokenType.CHARACTER;
-    static NULL_CHARACTER_TOKEN = TokenType.NULL_CHARACTER;
-    static WHITESPACE_CHARACTER_TOKEN = TokenType.WHITESPACE_CHARACTER;
-    static START_TAG_TOKEN = TokenType.START_TAG;
-    static END_TAG_TOKEN = TokenType.END_TAG;
-    static COMMENT_TOKEN = TokenType.COMMENT;
-    static DOCTYPE_TOKEN = TokenType.DOCTYPE;
-    static EOF_TOKEN = TokenType.EOF;
-    static HIBERNATION_TOKEN = TokenType.HIBERNATION;
+    static CHARACTER_TOKEN = TokenType.CHARACTER as const;
+    static NULL_CHARACTER_TOKEN = TokenType.NULL_CHARACTER as const;
+    static WHITESPACE_CHARACTER_TOKEN = TokenType.WHITESPACE_CHARACTER as const;
+    static START_TAG_TOKEN = TokenType.START_TAG as const;
+    static END_TAG_TOKEN = TokenType.END_TAG as const;
+    static COMMENT_TOKEN = TokenType.COMMENT as const;
+    static DOCTYPE_TOKEN = TokenType.DOCTYPE as const;
+    static EOF_TOKEN = TokenType.EOF as const;
+    static HIBERNATION_TOKEN = TokenType.HIBERNATION as const;
 
     //Tokenizer initial states for different modes
     static MODE = {
@@ -2363,7 +2361,7 @@ export class Tokenizer {
         SCRIPT_DATA: State.SCRIPT_DATA,
         PLAINTEXT: State.PLAINTEXT,
         CDATA_SECTION: State.CDATA_SECTION,
-    };
+    } as const;
 
     //Static
     static getTokenAttr = function (token: TagToken, attrName: string) {
