@@ -26,8 +26,8 @@ export function loadTreeConstructionTestData(dataDirs, treeAdapter) {
                 tests.push({
                     ...test,
                     idx: tests.length,
-                    setName: setName,
-                    dirName: dirName,
+                    setName,
+                    dirName,
                 });
             });
         });
@@ -59,7 +59,7 @@ function createParsingTest(test, treeAdapter, parse, { withoutErrors }) {
 
         const opts = {
             scriptingEnabled: test.scriptingEnabled,
-            treeAdapter: treeAdapter,
+            treeAdapter,
 
             onParseError: (err) => {
                 let errStr = `(${err.startLine}:${err.startCol}`;

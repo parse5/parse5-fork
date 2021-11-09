@@ -24,8 +24,8 @@ describe('parser', () => {
         beforeEach(() => {
             Parser.prototype.parseFragment = function (html, fragmentContext) {
                 return {
-                    html: html,
-                    fragmentContext: fragmentContext,
+                    html,
+                    fragmentContext,
                     options: this.options,
                 };
             };

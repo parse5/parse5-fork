@@ -13,7 +13,7 @@ generateTestsForEachTreeAdapter('location-info', (_test, treeAdapter) => {
         const html = '</head><div class="test"></div></body></html>';
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 

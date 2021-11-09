@@ -19,6 +19,6 @@ export function parseChunked(html, opts, minChunkSize, maxChunkSize) {
 
     return {
         node: parserStream.document,
-        chunks: chunks,
+        chunks,
     };
 }

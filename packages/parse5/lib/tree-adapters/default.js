@@ -19,9 +19,9 @@ export function createDocumentFragment() {
 export function createElement(tagName, namespaceURI, attrs) {
     return {
         nodeName: tagName,
-        tagName: tagName,
-        attrs: attrs,
-        namespaceURI: namespaceURI,
+        tagName,
+        attrs,
+        namespaceURI,
         childNodes: [],
         parentNode: null,
     };
@@ -30,7 +30,7 @@ export function createElement(tagName, namespaceURI, attrs) {
 export function createCommentNode(data) {
     return {
         nodeName: '#comment',
-        data: data,
+        data,
         parentNode: null,
     };
 }
@@ -38,7 +38,7 @@ export function createCommentNode(data) {
 const createTextNode = function (value) {
     return {
         nodeName: '#text',
-        value: value,
+        value,
         parentNode: null,
     };
 };
@@ -74,9 +74,9 @@ export function setDocumentType(document, name, publicId, systemId) {
     } else {
         appendChild(document, {
             nodeName: '#documentType',
-            name: name,
-            publicId: publicId,
-            systemId: systemId,
+            name,
+            publicId,
+            systemId,
         });
     }
 }

@@ -94,12 +94,12 @@ export function generateLocationInfoParserTests(name, prefix, parse) {
             //Then for each node in the tree we run serializer and compare results with the substring
             //obtained via location info from the expected serialization results.
             _test[testName] = async function () {
-                const serializerOpts = { treeAdapter: treeAdapter };
+                const serializerOpts = { treeAdapter };
                 const html = escapeString(test.data);
                 const lines = html.split(/\r?\n/g);
 
                 const parserOpts = {
-                    treeAdapter: treeAdapter,
+                    treeAdapter,
                     sourceCodeLocationInfo: true,
                 };
 

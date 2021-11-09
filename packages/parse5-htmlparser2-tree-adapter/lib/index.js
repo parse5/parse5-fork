@@ -47,10 +47,10 @@ Object.keys(nodePropertyShorthands).forEach((key) => {
     const shorthand = nodePropertyShorthands[key];
 
     Object.defineProperty(Node.prototype, key, {
-        get: function () {
+        get() {
             return this[shorthand] || null;
         },
-        set: function (val) {
+        set(val) {
             this[shorthand] = val;
         },
     });
@@ -97,7 +97,7 @@ export function createElement(tagName, namespaceURI, attrs) {
         type: tagName === 'script' || tagName === 'style' ? tagName : 'tag',
         name: tagName,
         namespace: namespaceURI,
-        attribs: attribs,
+        attribs,
         'x-attribsNamespace': attribsNamespace,
         'x-attribsPrefix': attribsPrefix,
         children: [],
@@ -110,7 +110,7 @@ export function createElement(tagName, namespaceURI, attrs) {
 export function createCommentNode(data) {
     return new Node({
         type: 'comment',
-        data: data,
+        data,
         parent: null,
         prev: null,
         next: null,
@@ -179,7 +179,7 @@ export function setDocumentType(document, name, publicId, systemId) {
             new Node({
                 type: 'directive',
                 name: '!doctype',
-                data: data,
+                data,
                 'x-name': name,
                 'x-publicId': publicId,
                 'x-systemId': systemId,
@@ -264,7 +264,7 @@ export function getParentNode(node) {
 
 export function getAttrList(element) {
     return Object.keys(element.attribs).map((name) => ({
-        name: name,
+        name,
         value: element.attribs[name],
         namespace: element['x-attribsNamespace'][name],
         prefix: element['x-attribsPrefix'][name],

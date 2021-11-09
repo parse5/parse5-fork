@@ -74,7 +74,7 @@ export class LocationInfoParserMixin extends Mixin {
                 mxn.posTracker = tokenizerMixin.posTracker;
 
                 Mixin.install(this.openElements, LocationInfoOpenElementStackMixin, {
-                    onItemPop: function (element) {
+                    onItemPop(element) {
                         mxn._setEndLocation(element, mxn.currentToken);
                     },
                 });
