@@ -5,14 +5,14 @@ import { generateTestsForEachTreeAdapter } from '../../../test/utils/common.js';
 
 generateTestsForEachTreeAdapter('plain-test-conversion-stream', (_test, treeAdapter) => {
     _test['Plain text conversion stream'] = function () {
-        const converter = new PlainTextConversionStream({ treeAdapter: treeAdapter });
+        const converter = new PlainTextConversionStream({ treeAdapter });
 
         converter.write('Hey');
         converter.write('\r\nyo');
         converter.write('\u0000');
         converter.end('<html><head><body>');
 
-        const result = parse5.serialize(converter.document, { treeAdapter: treeAdapter });
+        const result = parse5.serialize(converter.document, { treeAdapter });
 
         assert.strictEqual(
             result,

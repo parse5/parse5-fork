@@ -359,7 +359,7 @@ export class Tokenizer {
 
     _createCharacterToken(type, ch) {
         this.currentCharacterToken = {
-            type: type,
+            type,
             chars: ch,
         };
     }

@@ -58,7 +58,7 @@ function getDuration(startDate, endDate) {
         hours: 3600,
     });
 
-    return format((endDate - startDate) / 1000, { scale: scale });
+    return format((endDate - startDate) / 1000, { scale });
 }
 
 function printResults(parsedDataSize, startDate, endDate, heapDiff, maxMemUsage) {

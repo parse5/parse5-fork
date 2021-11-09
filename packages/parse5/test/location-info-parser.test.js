@@ -14,7 +14,7 @@ generateTestsForEachTreeAdapter('location-info-parser', (_test, treeAdapter) => 
         const html = '<p>1<p class="2">3';
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 
@@ -29,7 +29,7 @@ generateTestsForEachTreeAdapter('location-info-parser', (_test, treeAdapter) => 
         const html = '<i>1</i>2';
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 
@@ -44,7 +44,7 @@ generateTestsForEachTreeAdapter('location-info-parser', (_test, treeAdapter) => 
         const html = '<html><head></head><body>foo</body></html>';
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 
@@ -58,7 +58,7 @@ generateTestsForEachTreeAdapter('location-info-parser', (_test, treeAdapter) => 
         const html = '<template>hello</template>';
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 
@@ -71,7 +71,7 @@ generateTestsForEachTreeAdapter('location-info-parser', (_test, treeAdapter) => 
         const html = '<div test-attr></div>';
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 
@@ -91,7 +91,7 @@ generateTestsForEachTreeAdapter('location-info-parser', (_test, treeAdapter) => 
         `;
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 
@@ -109,7 +109,7 @@ generateTestsForEachTreeAdapter('location-info-parser', (_test, treeAdapter) => 
         const html = '<p>test';
 
         const opts = {
-            treeAdapter: treeAdapter,
+            treeAdapter,
             sourceCodeLocationInfo: true,
         };
 

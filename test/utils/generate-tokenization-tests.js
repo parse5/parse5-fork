@@ -176,7 +176,7 @@ function loadTests(dataDirPath) {
             descr.initialStates.forEach((initialState) => {
                 tests.push({
                     idx: ++testIdx,
-                    setName: setName,
+                    setName,
                     name: descr.description,
                     input: descr.input,
                     expected: concatCharacterTokens(expected),
