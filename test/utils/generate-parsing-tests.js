@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import assert from 'assert';
+import * as assert from 'assert';
 import { serializeToDatFileFormat } from './serialize-to-dat-file-format.js';
 import { generateTestsForEachTreeAdapter } from './common.js';
 import { parseDatFile } from '../../test/utils/parse-dat-file.js';

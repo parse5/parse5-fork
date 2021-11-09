@@ -1,4 +1,4 @@
-import assert from 'assert';
+import * as assert from 'assert';
 import dedent from 'dedent';
 import { RewritingStream } from '../lib/index.js';
 import { loadSAXParserTestData } from '../../../test/utils/load-sax-parser-test-data.js';
