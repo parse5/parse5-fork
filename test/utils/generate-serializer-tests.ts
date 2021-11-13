@@ -3,7 +3,11 @@ import * as fs from 'fs';
 import * as parse5 from '../../packages/parse5/lib/index.js';
 import { generateTestsForEachTreeAdapter, getStringDiffMsg } from './common.js';
 
-export function generateSerializerTests(name: string, prefix: string, serialize: any) {
+export function generateSerializerTests(
+    name: string,
+    prefix: string,
+    serialize: (document: any, opts: any) => Promise<string> | string
+) {
     const data = fs.readFileSync(new URL('../data/serialization/tests.json', import.meta.url), 'utf-8');
     const tests = JSON.parse(data) as {
         name: string;
