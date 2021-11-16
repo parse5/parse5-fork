@@ -1,3 +1,6 @@
+import { ParserOptions } from './../../packages/parse5/lib/parser/index';
+import { Location } from './../../packages/parse5/lib/common/token';
+import { TreeAdapter, TreeAdapterTypeMap, TreeLocation } from './../../packages/parse5/lib/tree-adapters/interface';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -11,20 +14,24 @@ import {
     generateTestsForEachTreeAdapter,
 } from './common.js';
 
-function walkTree(document, treeAdapter, handler) {
+function walkTree<T extends TreeAdapterTypeMap>(
+    document: T['document'],
+    treeAdapter: TreeAdapter<T>,
+    handler: (node: T['node']) => void
+) {
     for (let stack = treeAdapter.getChildNodes(document).slice(); stack.length; ) {
-        const node = stack.shift();
+        const node = stack.shift()!;
         const children = treeAdapter.getChildNodes(node);
 
         handler(node);
 
-        if (children && children.length) {
+        if (children?.length) {
             stack = children.concat(stack);
         }
     }
 }
 
-function assertLocation(loc, expected, html, lines) {
+function assertLocation(loc: Location, expected: string, html: string, lines: string[]) {
     //Offsets
     let actual = html.substring(loc.startOffset, loc.endOffset);
 
@@ -41,30 +48,30 @@ function assertLocation(loc, expected, html, lines) {
 }
 
 //NOTE: Based on the idea that the serialized fragment starts with the startTag
-export function assertStartTagLocation(location, serializedNode, html, lines) {
-    const length = location.startTag.endOffset - location.startTag.startOffset;
+export function assertStartTagLocation(location: TreeLocation, serializedNode: string, html: string, lines: string[]) {
+    const length = location.startTag!.endOffset - location.startTag!.startOffset;
     const expected = serializedNode.substring(0, length);
 
-    assertLocation(location.startTag, expected, html, lines);
+    assertLocation(location.startTag!, expected, html, lines);
 }
 
 //NOTE: Based on the idea that the serialized fragment ends with the endTag
-function assertEndTagLocation(location, serializedNode, html, lines) {
+function assertEndTagLocation(location: any, serializedNode: string, html: string, lines: string[]) {
     const length = location.endTag.endOffset - location.endTag.startOffset;
     const expected = serializedNode.slice(-length);
 
     assertLocation(location.endTag, expected, html, lines);
 }
 
-function assertAttrsLocation(location, serializedNode, html, lines) {
-    location.attrs.forEach((attr) => {
+function assertAttrsLocation(location: any, serializedNode: string, html: string, lines: string[]) {
+    location.attrs.forEach((attr: any) => {
         const expected = serializedNode.slice(attr.startOffset, attr.endOffset);
 
         assertLocation(attr, expected, html, lines);
     });
 }
 
-export function assertNodeLocation(location, serializedNode, html, lines) {
+export function assertNodeLocation(location: Location, serializedNode: string, html: string, lines: string[]) {
     const expected = removeNewLines(serializedNode);
 
     assertLocation(location, expected, html, lines);
@@ -85,7 +92,11 @@ function loadParserLocationInfoTestData() {
     });
 }
 
-export function generateLocationInfoParserTests(name, prefix, parse) {
+export function generateLocationInfoParserTests(
+    name: string,
+    _prefix: string,
+    parse: (html: string, opts: ParserOptions<TreeAdapterTypeMap>) => { node: TreeAdapterTypeMap['node'] }
+) {
     generateTestsForEachTreeAdapter(name, (_test, treeAdapter) => {
         loadParserLocationInfoTestData().forEach((test) => {
             const testName = `Location info (Parser) - ${test.name}`;
