@@ -1,9 +1,9 @@
-import { Attribute, Token } from './../../packages/parse5/lib/common/token';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Tokenizer } from '../../packages/parse5/lib/tokenizer/index.js';
 import { makeChunks } from './common.js';
+import type { Attribute, Token } from './../../packages/parse5/lib/common/token';
 
 type HtmlLibToken = [string, string | null, ...unknown[]];
 
@@ -50,11 +50,13 @@ function sortErrors(result: { errors: { line: number; col: number }[] }) {
     result.errors.sort((err1, err2) => err1.line - err2.line || err1.col - err2.col);
 }
 
+type TokenSourceCreator = (data: { tokens: Token[]; errors: { code: string; line: number; col: number }[] }) => {
+    tokenizer: Tokenizer;
+    getNextToken: () => Token;
+};
+
 function tokenize(
-    createTokenSource: (data: { tokens: Token[]; errors: string[] }) => {
-        tokenizer: Tokenizer;
-        getNextToken: () => Token;
-    },
+    createTokenSource: TokenSourceCreator,
     chunks: string | string[],
     initialState: Tokenizer['state'],
     lastStartTag: string | null
@@ -190,7 +192,7 @@ function loadTests(dataDirPath: string): LoadedTest[] {
                 unescapeDescrIO(descr);
             }
 
-            const expected = descr.output.filter((tokenEntry: any) => tokenEntry !== 'ParseError');
+            const expected = descr.output;
 
             descr.initialStates.forEach((initialState: string) => {
                 tests.push({
@@ -210,7 +212,12 @@ function loadTests(dataDirPath: string): LoadedTest[] {
     return tests;
 }
 
-export function generateTokenizationTests(_name: string, prefix: string, testSuite: string, createTokenSource: any) {
+export function generateTokenizationTests(
+    _name: string,
+    prefix: string,
+    testSuite: string,
+    createTokenSource: TokenSourceCreator
+) {
     loadTests(testSuite).forEach((testData) => {
         const testName = `${prefix} - ${testData.idx}.${testData.setName} - ${testData.name} - Initial state: ${testData.initialState}`;
 
