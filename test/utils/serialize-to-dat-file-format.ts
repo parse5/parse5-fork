@@ -7,7 +7,7 @@ function getSerializedTreeIndent(indent: number) {
 }
 
 function getElementSerializedNamespaceURI<T extends TreeAdapterTypeMap>(
-    element: any,
+    element: T['element'],
     treeAdapter: TreeAdapter<T>
 ): string {
     switch (treeAdapter.getNamespaceURI(element)) {
@@ -27,7 +27,7 @@ function serializeNodeList<T extends TreeAdapterTypeMap>(
 ): string {
     let str = '';
 
-    nodes.forEach((node: any) => {
+    nodes.forEach((node) => {
         str += getSerializedTreeIndent(indent);
 
         if (treeAdapter.isCommentNode(node)) {

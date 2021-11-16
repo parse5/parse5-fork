@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import { SAXParser } from '../lib/index.js';
+import { SAXParser, SAXParserOptions } from '../lib/index.js';
 import { loadSAXParserTestData } from '../../../test/utils/load-sax-parser-test-data.js';
 import {
     getStringDiffMsg,
@@ -13,7 +13,7 @@ function sanitizeForComparison(str: string) {
     return removeNewLines(str).replace(/\s/g, '').replace(/'/g, '"').toLowerCase();
 }
 
-function createBasicTest(html: string, expected: string, options?: any) {
+function createBasicTest(html: string, expected: string, options?: SAXParserOptions) {
     return function () {
         //NOTE: the idea of the test is to serialize back given HTML using SAXParser handlers
         let actual = '';
