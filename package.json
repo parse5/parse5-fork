@@ -16,6 +16,7 @@
         "prettier": "^2.4.1",
         "r2": "^2.0.1",
         "ts-jest": "^27.0.7",
+        "ts-node": "^10.4.0",
         "typescript": "^4.4.4"
     },
     "scripts": {
@@ -30,7 +31,7 @@
         "lint:prettier": "npm run prettier -- --check",
         "unit-tests": "NODE_OPTIONS=--experimental-vm-modules jest",
         "test": "npm run lint && npm run unit-tests",
-        "generate-feedback-tests": "node scripts/generate-parser-feedback-test test/data/html5lib-tests/tree-construction/*.dat test/data/tree-construction-regression/*.dat",
+        "generate-feedback-tests": "ts-node scripts/generate-parser-feedback-test test/data/html5lib-tests/tree-construction/*.dat test/data/tree-construction-regression/*.dat",
         "generate-named-entity-data": "node scripts/generate-named-entity-data",
         "bench-perf": "cd bench && npm install && node perf/index.js",
         "bench-memory-named-entities": "cd bench && npm install && node memory/named-entity-data.js",

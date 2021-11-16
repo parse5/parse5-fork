@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { SAXParser } from '../lib/index.js';
 import { loadSAXParserTestData } from '../../../test/utils/load-sax-parser-test-data.js';
 import { writeChunkedToStream } from '../../../test/utils/common.js';
+import type { Location } from 'parse5/lib/common/token';
 
 describe('location-info', () => {
     it('Location info (SAX)', () => {
@@ -10,7 +11,7 @@ describe('location-info', () => {
             //So here we just check that SAXParser provides this info in the handlers.
             const parser = new SAXParser({ sourceCodeLocationInfo: true });
 
-            const handler = ({ sourceCodeLocation }) => {
+            const handler = ({ sourceCodeLocation }: { sourceCodeLocation: Location }) => {
                 assert.strictEqual(typeof sourceCodeLocation.startLine, 'number');
                 assert.strictEqual(typeof sourceCodeLocation.startCol, 'number');
                 assert.strictEqual(typeof sourceCodeLocation.startOffset, 'number');
