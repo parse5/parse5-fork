@@ -788,9 +788,10 @@ function aaObtainFormattingElementEntry<T extends TreeAdapterTypeMap>(p: Parser<
 //Steps 9 and 10 of the algorithm
 function aaObtainFurthestBlock<T extends TreeAdapterTypeMap>(p: Parser<T>, formattingElementEntry: ElementEntry<T>) {
     let furthestBlock = null;
+    let idx = p.openElements.stackTop;
 
-    for (let i = p.openElements.stackTop; i >= 0; i--) {
-        const element = p.openElements.items[i];
+    for (; idx >= 0; idx--) {
+        const element = p.openElements.items[idx];
 
         if (element === formattingElementEntry.element) {
             break;
@@ -802,7 +803,7 @@ function aaObtainFurthestBlock<T extends TreeAdapterTypeMap>(p: Parser<T>, forma
     }
 
     if (!furthestBlock) {
-        p.openElements.popUntilElementPopped(formattingElementEntry.element);
+        p.openElements.shortenToLength(idx < 0 ? 0 : idx);
         p.activeFormattingElements.removeEntry(formattingElementEntry);
     }
 
@@ -1377,7 +1378,7 @@ function numberedHeaderStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>
 
     const tn = p.openElements.currentTagName!;
 
-    if (NUMBERED_HEADERS.has(tn)) {
+    if (HTML.isNumberedHeader(tn)) {
         p.openElements.pop();
     }
 
@@ -1668,8 +1669,6 @@ function genericStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token
     p._insertElement(token, NS.HTML);
 }
 
-const NUMBERED_HEADERS = new Set<string>([$.H1, $.H2, $.H3, $.H4, $.H5, $.H6]);
-
 //OPTIMIZATION: Integer comparisons are low-cost, so we can use very fast tag name length filters here.
 //It's faster than using dictionary.
 function startTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
@@ -1692,7 +1691,7 @@ function startTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
         case 2:
             if (tn === $.DL || tn === $.OL || tn === $.UL) {
                 addressStartTagInBody(p, token);
-            } else if (NUMBERED_HEADERS.has(tn)) {
+            } else if (HTML.isNumberedHeader(tn)) {
                 numberedHeaderStartTagInBody(p, token);
             } else if (tn === $.LI || tn === $.DD || tn === $.DT) {
                 listItemStartTagInBody(p, token);
@@ -1983,7 +1982,7 @@ function genericEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 
         if (p.treeAdapter.getTagName(element) === tn) {
             p.openElements.generateImpliedEndTagsWithExclusion(tn);
-            p.openElements.popUntilElementPopped(element);
+            if (p.openElements.items.length > i) p.openElements.shortenToLength(i);
             break;
         }
 
@@ -2017,7 +2016,7 @@ function endTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
                 liEndTagInBody(p);
             } else if (tn === $.DD || tn === $.DT) {
                 ddEndTagInBody(p, token);
-            } else if (NUMBERED_HEADERS.has(tn)) {
+            } else if (HTML.isNumberedHeader(tn)) {
                 numberedHeaderEndTagInBody(p);
             } else if (tn === $.BR) {
                 brEndTagInBody(p);
@@ -2192,9 +2191,9 @@ function modeInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
 }
 
 function characterInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken) {
-    const curTn = p.openElements.currentTagName;
+    const curTn = p.openElements.currentTagName!;
 
-    if (curTn === $.TABLE || curTn === $.TBODY || curTn === $.TFOOT || curTn === $.THEAD || curTn === $.TR) {
+    if (TABLE_STRUCTURE_TAGS.has(curTn)) {
         p.pendingCharacterTokens = [];
         p.hasNonWhitespacePendingCharacterToken = false;
         p.originalInsertionMode = p.insertionMode;
@@ -3195,7 +3194,7 @@ function endTagInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
         }
 
         if (p.treeAdapter.getTagName(element).toLowerCase() === token.tagName) {
-            p.openElements.popUntilElementPopped(element);
+            p.openElements.shortenToLength(i);
             break;
         }
     }
