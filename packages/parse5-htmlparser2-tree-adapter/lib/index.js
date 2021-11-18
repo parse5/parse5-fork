@@ -1,5 +1,3 @@
-'use strict';
-
 import * as doctype from 'parse5/lib/common/doctype.js';
 import { DOCUMENT_MODE } from 'parse5/lib/common/html.js';
 import { NodeWithChildren, Element, ProcessingInstruction, Comment, Text } from 'domhandler';
@@ -176,12 +174,7 @@ export function getParentNode(node) {
 }
 
 export function getAttrList(element) {
-    return Object.keys(element.attribs).map((name) => ({
-        name: name,
-        value: element.attribs[name],
-        namespace: element['x-attribsNamespace'][name],
-        prefix: element['x-attribsPrefix'][name],
-    }));
+    return element.attributes;
 }
 
 //Node data
