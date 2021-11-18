@@ -1,22 +1,20 @@
-'use strict';
-
 import * as doctype from 'parse5/lib/common/doctype.js';
 import { DOCUMENT_MODE } from 'parse5/lib/common/html.js';
 import { NodeWithChildren, Element, ProcessingInstruction, Comment, Text } from 'domhandler';
 
 //Node construction
-exports.createDocument = function () {
+export function createDocument() {
     const node = new NodeWithChildren('root', []);
     node.name = 'root';
     node['x-mode'] = DOCUMENT_MODE.NO_QUIRKS;
     return node;
-};
+}
 
-exports.createDocumentFragment = function () {
+export function createDocumentFragment() {
     const node = new NodeWithChildren('root', []);
     node.name = 'root';
     return node;
-};
+}
 
 export function createElement(tagName, namespaceURI, attrs) {
     const attribs = Object.create(null);
@@ -38,13 +36,13 @@ export function createElement(tagName, namespaceURI, attrs) {
     return node;
 }
 
-exports.createCommentNode = function (data) {
+export function createCommentNode(data) {
     return new Comment(data);
-};
+}
 
-const createTextNode = function (value) {
+function createTextNode(value) {
     return new Text(value);
-};
+}
 
 //Tree mutation
 export function appendChild(parentNode, newNode) {
@@ -176,12 +174,7 @@ export function getParentNode(node) {
 }
 
 export function getAttrList(element) {
-    return Object.keys(element.attribs).map((name) => ({
-        name,
-        value: element.attribs[name],
-        namespace: element['x-attribsNamespace'][name],
-        prefix: element['x-attribsPrefix'][name],
-    }));
+    return element.attributes;
 }
 
 //Node data
