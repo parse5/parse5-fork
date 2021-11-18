@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import * as HTML from '../lib/common/html.js';
-import { OpenElementStack } from '../lib/parser/open-element-stack.js';
-import { generateTestsForEachTreeAdapter } from '../../../test/utils/common.js';
+import * as HTML from '../common/html.js';
+import { OpenElementStack } from './open-element-stack.js';
+import { generateTestsForEachTreeAdapter } from '../../../../test/utils/common.js';
 
 //Aliases
 const $ = HTML.TAG_NAMES;

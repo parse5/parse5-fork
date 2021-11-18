@@ -1,12 +1,8 @@
 import * as assert from 'assert';
-import * as HTML from '../lib/common/html.js';
-import { TagToken, TokenType } from './../lib/common/token.js';
-import { FormattingElementList } from '../lib/parser/formatting-element-list.js';
-import { generateTestsForEachTreeAdapter } from '../../../test/utils/common.js';
-
-//Aliases
-const $ = HTML.TAG_NAMES;
-const NS = HTML.NAMESPACES;
+import { TAG_NAMES as $, NAMESPACES as NS } from '../common/html.js';
+import { TagToken, TokenType } from './../common/token.js';
+import { FormattingElementList } from '../parser/formatting-element-list.js';
+import { generateTestsForEachTreeAdapter } from '../../../../test/utils/common.js';
 
 generateTestsForEachTreeAdapter('FormattingElementList', (_test, treeAdapter) => {
     function createToken(name: string): TagToken {
