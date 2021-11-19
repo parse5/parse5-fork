@@ -107,7 +107,7 @@ export function generateLocationInfoParserTests(
             //NOTE: How it works: we parse document with the location info.
             //Then for each node in the tree we run serializer and compare results with the substring
             //obtained via location info from the expected serialization results.
-            it(`Location info (Parser) - ${test.name}`, async function () {
+            it(`Location info (Parser) - ${test.name}`, async () => {
                 const serializerOpts = { treeAdapter };
                 const html = escapeString(test.data);
                 const lines = html.split(/\r?\n/g);
