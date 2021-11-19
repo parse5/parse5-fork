@@ -4,7 +4,7 @@
     "type": "module",
     "devDependencies": {
         "@types/dedent": "^0.7.0",
-        "@types/jest": "^27.0.2",
+        "@types/jest": "^27.0.3",
         "@types/mocha": "^9.0.0",
         "dedent": "^0.7.0",
         "eslint": "^8.2.0",
