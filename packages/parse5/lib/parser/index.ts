@@ -1,4 +1,4 @@
-import { Tokenizer } from '../tokenizer/index.js';
+import { Tokenizer, TokenizerMode } from '../tokenizer/index.js';
 import { OpenElementStack } from './open-element-stack.js';
 import { FormattingElementList, ElementEntry } from './formatting-element-list.js';
 import { LocationInfoParserMixin } from '../extensions/location-info/parser-mixin.js';
@@ -19,7 +19,7 @@ import {
 } from '../common/html.js';
 import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface';
 import type { ParserError } from '../extensions/error-reporting/mixin-base';
-import { Token, CommentToken, CharacterToken, TagToken, DoctypeToken } from '../common/token';
+import { TokenType, getTokenAttr, Token, CommentToken, CharacterToken, TagToken, DoctypeToken } from '../common/token';
 
 //Misc constants
 const HIDDEN_INPUT_TYPE = 'hidden';
@@ -257,14 +257,14 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
             const token = this.tokenizer.getNextToken();
 
-            if (token.type === Tokenizer.HIBERNATION_TOKEN) {
+            if (token.type === TokenType.HIBERNATION) {
                 break;
             }
 
             if (this.skipNextNewLine) {
                 this.skipNextNewLine = false;
 
-                if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN && token.chars[0] === '\n') {
+                if (token.type === TokenType.WHITESPACE_CHARACTER && token.chars[0] === '\n') {
                     if (token.chars.length === 1) {
                         continue;
                     }
@@ -313,10 +313,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
             !this._isIntegrationPoint(current);
     }
 
-    _switchToTextParsing(
-        currentToken: TagToken,
-        nextTokenizerState: typeof Tokenizer.MODE[keyof typeof Tokenizer.MODE]
-    ) {
+    _switchToTextParsing(currentToken: TagToken, nextTokenizerState: typeof TokenizerMode[keyof typeof TokenizerMode]) {
         this._insertElement(currentToken, NS.HTML);
         this.tokenizer.state = nextTokenizerState;
         this.originalInsertionMode = this.insertionMode;
@@ -326,7 +323,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     switchToPlaintextParsing() {
         this.insertionMode = InsertionMode.TEXT;
         this.originalInsertionMode = InsertionMode.IN_BODY;
-        this.tokenizer.state = Tokenizer.MODE.PLAINTEXT;
+        this.tokenizer.state = TokenizerMode.PLAINTEXT;
     }
 
     //Fragment parsing
@@ -354,7 +351,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
             const tn = this.treeAdapter.getTagName(this.fragmentContext!);
 
             if (tn === $.TITLE || tn === $.TEXTAREA) {
-                this.tokenizer.state = Tokenizer.MODE.RCDATA;
+                this.tokenizer.state = TokenizerMode.RCDATA;
             } else if (
                 tn === $.STYLE ||
                 tn === $.XMP ||
@@ -363,11 +360,11 @@ export class Parser<T extends TreeAdapterTypeMap> {
                 tn === $.NOFRAMES ||
                 tn === $.NOSCRIPT
             ) {
-                this.tokenizer.state = Tokenizer.MODE.RAWTEXT;
+                this.tokenizer.state = TokenizerMode.RAWTEXT;
             } else if (tn === $.SCRIPT) {
-                this.tokenizer.state = Tokenizer.MODE.SCRIPT_DATA;
+                this.tokenizer.state = TokenizerMode.SCRIPT_DATA;
             } else if (tn === $.PLAINTEXT) {
-                this.tokenizer.state = Tokenizer.MODE.PLAINTEXT;
+                this.tokenizer.state = TokenizerMode.PLAINTEXT;
             }
         }
     }
@@ -467,32 +464,29 @@ export class Parser<T extends TreeAdapterTypeMap> {
         if (
             this.treeAdapter.getTagName(current) === $.ANNOTATION_XML &&
             ns === NS.MATHML &&
-            token.type === Tokenizer.START_TAG_TOKEN &&
+            token.type === TokenType.START_TAG &&
             token.tagName === $.SVG
         ) {
             return false;
         }
 
         const isCharacterToken =
-            token.type === Tokenizer.CHARACTER_TOKEN ||
-            token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-            token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN;
+            token.type === TokenType.CHARACTER ||
+            token.type === TokenType.NULL_CHARACTER ||
+            token.type === TokenType.WHITESPACE_CHARACTER;
 
         const isMathMLTextStartTag =
-            token.type === Tokenizer.START_TAG_TOKEN && token.tagName !== $.MGLYPH && token.tagName !== $.MALIGNMARK;
+            token.type === TokenType.START_TAG && token.tagName !== $.MGLYPH && token.tagName !== $.MALIGNMARK;
 
         if ((isMathMLTextStartTag || isCharacterToken) && this._isIntegrationPoint(current, NS.MATHML)) {
             return false;
         }
 
-        if (
-            (token.type === Tokenizer.START_TAG_TOKEN || isCharacterToken) &&
-            this._isIntegrationPoint(current, NS.HTML)
-        ) {
+        if ((token.type === TokenType.START_TAG || isCharacterToken) && this._isIntegrationPoint(current, NS.HTML)) {
             return false;
         }
 
-        return token.type !== Tokenizer.EOF_TOKEN;
+        return token.type !== TokenType.EOF;
     }
 
     _processToken(token: Token) {
@@ -546,17 +540,17 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     _processTokenInForeignContent(token: Token) {
-        if (token.type === Tokenizer.CHARACTER_TOKEN) {
+        if (token.type === TokenType.CHARACTER) {
             characterInForeignContent(this, token);
-        } else if (token.type === Tokenizer.NULL_CHARACTER_TOKEN) {
+        } else if (token.type === TokenType.NULL_CHARACTER) {
             nullCharacterInForeignContent(this, token);
-        } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+        } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
             this._insertCharacters(token);
-        } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+        } else if (token.type === TokenType.COMMENT) {
             appendComment(this, token);
-        } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+        } else if (token.type === TokenType.START_TAG) {
             startTagInForeignContent(this, token);
-        } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+        } else if (token.type === TokenType.END_TAG) {
             endTagInForeignContent(this, token);
         }
     }
@@ -568,7 +562,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
             this._processToken(token);
         }
 
-        if (token.type === Tokenizer.START_TAG_TOKEN && token.selfClosing && !token.ackSelfClosing) {
+        if (token.type === TokenType.START_TAG && token.selfClosing && !token.ackSelfClosing) {
             this._err(ERR.nonVoidHtmlElementStartTagWithTrailingSolidus);
         }
     }
@@ -932,11 +926,11 @@ function stopParsing<T extends TreeAdapterTypeMap>(p: Parser<T>) {
 // The "initial" insertion mode
 //------------------------------------------------------------------
 function modeInitial<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.COMMENT_TOKEN) {
+    if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.DOCTYPE_TOKEN) {
+    } else if (token.type === TokenType.DOCTYPE) {
         doctypeInInitialMode(p, token);
-    } else if (token.type !== Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type !== TokenType.WHITESPACE_CHARACTER) {
         tokenInInitialMode(p, token);
     }
 }
@@ -965,17 +959,13 @@ function tokenInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 // The "before html" insertion mode
 //------------------------------------------------------------------
 function modeBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.EOF_TOKEN
-    ) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
         tokenBeforeHtml(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagBeforeHtml(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagBeforeHtml(p, token);
     }
 }
@@ -1006,19 +996,15 @@ function tokenBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Toke
 // The "before head" insertion mode
 //------------------------------------------------------------------
 function modeBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.EOF_TOKEN
-    ) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
         tokenBeforeHead(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.DOCTYPE_TOKEN) {
+    } else if (token.type === TokenType.DOCTYPE) {
         misplacedDoctype(p);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagBeforeHead(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagBeforeHead(p, token);
     }
 }
@@ -1057,21 +1043,17 @@ function tokenBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Toke
 // The "in head" insertion mode
 //------------------------------------------------------------------
 function modeInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.EOF_TOKEN
-    ) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
         tokenInHead(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.DOCTYPE_TOKEN) {
+    } else if (token.type === TokenType.DOCTYPE) {
         misplacedDoctype(p);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInHead(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInHead(p, token);
     }
 }
@@ -1085,18 +1067,18 @@ function startTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
         p._appendElement(token, NS.HTML);
         token.ackSelfClosing = true;
     } else if (tn === $.TITLE) {
-        p._switchToTextParsing(token, Tokenizer.MODE.RCDATA);
+        p._switchToTextParsing(token, TokenizerMode.RCDATA);
     } else if (tn === $.NOSCRIPT) {
         if (p.options.scriptingEnabled) {
-            p._switchToTextParsing(token, Tokenizer.MODE.RAWTEXT);
+            p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
         } else {
             p._insertElement(token, NS.HTML);
             p.insertionMode = InsertionMode.IN_HEAD_NO_SCRIPT;
         }
     } else if (tn === $.NOFRAMES || tn === $.STYLE) {
-        p._switchToTextParsing(token, Tokenizer.MODE.RAWTEXT);
+        p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
     } else if (tn === $.SCRIPT) {
-        p._switchToTextParsing(token, Tokenizer.MODE.SCRIPT_DATA);
+        p._switchToTextParsing(token, TokenizerMode.SCRIPT_DATA);
     } else if (tn === $.TEMPLATE) {
         p._insertTemplate(token);
         p.activeFormattingElements.insertMarker();
@@ -1147,21 +1129,17 @@ function tokenInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
 // The "in head no script" insertion mode
 //------------------------------------------------------------------
 function modeInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.EOF_TOKEN
-    ) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
         tokenInHeadNoScript(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.DOCTYPE_TOKEN) {
+    } else if (token.type === TokenType.DOCTYPE) {
         misplacedDoctype(p);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInHeadNoScript(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInHeadNoScript(p, token);
     }
 }
@@ -1202,8 +1180,7 @@ function endTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
 }
 
 function tokenInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    const errCode =
-        token.type === Tokenizer.EOF_TOKEN ? ERR.openElementsLeftAfterEof : ERR.disallowedContentInNoscriptInHead;
+    const errCode = token.type === TokenType.EOF ? ERR.openElementsLeftAfterEof : ERR.disallowedContentInNoscriptInHead;
 
     p._err(errCode);
     p.openElements.pop();
@@ -1214,21 +1191,17 @@ function tokenInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 // The "after head" insertion mode
 //------------------------------------------------------------------
 function modeAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.EOF_TOKEN
-    ) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
         tokenAfterHead(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.DOCTYPE_TOKEN) {
+    } else if (token.type === TokenType.DOCTYPE) {
         misplacedDoctype(p);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagAfterHead(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagAfterHead(p, token);
     }
 }
@@ -1291,17 +1264,17 @@ function tokenAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
 // The "in body" insertion mode
 //------------------------------------------------------------------
 function modeInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER) {
         characterInBody(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInBody(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInBody(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInBody(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -1433,7 +1406,7 @@ function plaintextStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, tok
     }
 
     p._insertElement(token, NS.HTML);
-    p.tokenizer.state = Tokenizer.MODE.PLAINTEXT;
+    p.tokenizer.state = TokenizerMode.PLAINTEXT;
 }
 
 function buttonStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
@@ -1503,13 +1476,17 @@ function areaStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     token.ackSelfClosing = true;
 }
 
+function isHiddenInput(token: TagToken) {
+    const inputType = getTokenAttr(token, ATTRS.TYPE);
+
+    return inputType != null && inputType.toLowerCase() === HIDDEN_INPUT_TYPE;
+}
+
 function inputStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
     p._reconstructActiveFormattingElements();
     p._appendElement(token, NS.HTML);
 
-    const inputType = Tokenizer.getTokenAttr(token, ATTRS.TYPE);
-
-    if (!inputType || inputType.toLowerCase() !== HIDDEN_INPUT_TYPE) {
+    if (!isHiddenInput(token)) {
         p.framesetOk = false;
     }
 
@@ -1541,7 +1518,7 @@ function textareaStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     //NOTE: If the next token is a U+000A LINE FEED (LF) character token, then ignore that token and move
     //on to the next one. (Newlines at the start of textarea elements are ignored as an authoring convenience.)
     p.skipNextNewLine = true;
-    p.tokenizer.state = Tokenizer.MODE.RCDATA;
+    p.tokenizer.state = TokenizerMode.RCDATA;
     p.originalInsertionMode = p.insertionMode;
     p.framesetOk = false;
     p.insertionMode = InsertionMode.TEXT;
@@ -1554,18 +1531,18 @@ function xmpStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
 
     p._reconstructActiveFormattingElements();
     p.framesetOk = false;
-    p._switchToTextParsing(token, Tokenizer.MODE.RAWTEXT);
+    p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
 }
 
 function iframeStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
     p.framesetOk = false;
-    p._switchToTextParsing(token, Tokenizer.MODE.RAWTEXT);
+    p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
 }
 
 //NOTE: here we assume that we always act as an user agent with enabled plugins, so we parse
 //<noembed> as a rawtext.
 function noembedStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    p._switchToTextParsing(token, Tokenizer.MODE.RAWTEXT);
+    p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
 }
 
 function selectStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
@@ -2119,14 +2096,14 @@ function eofInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
 //------------------------------------------------------------------
 function modeText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
     if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN
+        token.type === TokenType.CHARACTER ||
+        token.type === TokenType.NULL_CHARACTER ||
+        token.type === TokenType.WHITESPACE_CHARACTER
     ) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInText(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInText(p, token);
     }
 }
@@ -2151,18 +2128,18 @@ function eofInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
 //------------------------------------------------------------------
 function modeInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
     if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN
+        token.type === TokenType.CHARACTER ||
+        token.type === TokenType.NULL_CHARACTER ||
+        token.type === TokenType.WHITESPACE_CHARACTER
     ) {
         characterInTable(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInTable(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInTable(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2223,9 +2200,7 @@ function tableStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
 }
 
 function inputStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const inputType = Tokenizer.getTokenAttr(token, ATTRS.TYPE);
-
-    if (inputType && inputType.toLowerCase() === HIDDEN_INPUT_TYPE) {
+    if (isHiddenInput(token)) {
         p._appendElement(token, NS.HTML);
     } else {
         tokenInTable(p, token);
@@ -2361,11 +2336,11 @@ function tokenInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) 
 // The "in table text" insertion mode
 //------------------------------------------------------------------
 function modeInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER) {
         characterInTableText(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInTableText(p, token);
-    } else if (token.type !== Tokenizer.NULL_CHARACTER_TOKEN) {
+    } else if (token.type !== TokenType.NULL_CHARACTER) {
         tokenInTableText(p, token);
     }
 }
@@ -2399,17 +2374,17 @@ function tokenInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tok
 // The "in caption" insertion mode
 //------------------------------------------------------------------
 function modeInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER) {
         characterInBody(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInBody(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInCaption(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInCaption(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2475,17 +2450,17 @@ function endTagInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
 // The "in column group" insertion mode
 //------------------------------------------------------------------
 function modeInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN || token.type === Tokenizer.NULL_CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER) {
         tokenInColumnGroup(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInColumnGroup(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInColumnGroup(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2532,18 +2507,18 @@ function tokenInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 //------------------------------------------------------------------
 function modeInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
     if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN
+        token.type === TokenType.CHARACTER ||
+        token.type === TokenType.NULL_CHARACTER ||
+        token.type === TokenType.WHITESPACE_CHARACTER
     ) {
         characterInTable(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInTableBody(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInTableBody(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2613,18 +2588,18 @@ function endTagInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
 //------------------------------------------------------------------
 function modeInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
     if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN
+        token.type === TokenType.CHARACTER ||
+        token.type === TokenType.NULL_CHARACTER ||
+        token.type === TokenType.WHITESPACE_CHARACTER
     ) {
         characterInTable(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInRow(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInRow(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2696,17 +2671,17 @@ function endTagInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken
 // The "in cell" insertion mode
 //------------------------------------------------------------------
 function modeInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER) {
         characterInBody(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInBody(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInCell(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInCell(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2747,15 +2722,15 @@ function endTagInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
 // The "in select" insertion mode
 //------------------------------------------------------------------
 function modeInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN || token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInSelect(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInSelect(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2824,15 +2799,15 @@ function endTagInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
 // The "in select in table" insertion mode
 //------------------------------------------------------------------
 function modeInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN || token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInSelectInTable(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInSelectInTable(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInBody(p, token);
     }
 }
@@ -2884,17 +2859,17 @@ function endTagInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token
 // The "in template" insertion mode
 //------------------------------------------------------------------
 function modeInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER) {
         characterInBody(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInBody(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInTemplate(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInTemplate(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         eofInTemplate(p, token);
     }
 }
@@ -2947,17 +2922,17 @@ function eofInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
 // The "after body" insertion mode
 //------------------------------------------------------------------
 function modeAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.CHARACTER_TOKEN || token.type === Tokenizer.NULL_CHARACTER_TOKEN) {
+    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER) {
         tokenAfterBody(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInBody(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendCommentToRootHtmlElement(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagAfterBody(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagAfterBody(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         stopParsing(p);
     }
 }
@@ -2988,15 +2963,15 @@ function tokenAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
 // The "in frameset" insertion mode
 //------------------------------------------------------------------
 function modeInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    if (token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagInFrameset(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagInFrameset(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         stopParsing(p);
     }
 }
@@ -3029,15 +3004,15 @@ function endTagInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
 // The "after frameset" insertion mode
 //------------------------------------------------------------------
 function modeAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    if (token.type === TokenType.WHITESPACE_CHARACTER) {
         p._insertCharacters(token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagAfterFrameset(p, token);
-    } else if (token.type === Tokenizer.END_TAG_TOKEN) {
+    } else if (token.type === TokenType.END_TAG) {
         endTagAfterFrameset(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         stopParsing(p);
     }
 }
@@ -3062,18 +3037,18 @@ function endTagAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 //------------------------------------------------------------------
 function modeAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
     if (
-        token.type === Tokenizer.CHARACTER_TOKEN ||
-        token.type === Tokenizer.NULL_CHARACTER_TOKEN ||
-        token.type === Tokenizer.END_TAG_TOKEN
+        token.type === TokenType.CHARACTER ||
+        token.type === TokenType.NULL_CHARACTER ||
+        token.type === TokenType.END_TAG
     ) {
         tokenAfterAfterBody(p, token);
-    } else if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInBody(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendCommentToDocument(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagAfterAfterBody(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         stopParsing(p);
     }
 }
@@ -3094,13 +3069,13 @@ function tokenAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 // The "after after frameset" insertion mode
 //------------------------------------------------------------------
 function modeAfterAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === Tokenizer.WHITESPACE_CHARACTER_TOKEN) {
+    if (token.type === TokenType.WHITESPACE_CHARACTER) {
         whitespaceCharacterInBody(p, token);
-    } else if (token.type === Tokenizer.COMMENT_TOKEN) {
+    } else if (token.type === TokenType.COMMENT) {
         appendCommentToDocument(p, token);
-    } else if (token.type === Tokenizer.START_TAG_TOKEN) {
+    } else if (token.type === TokenType.START_TAG) {
         startTagAfterAfterFrameset(p, token);
-    } else if (token.type === Tokenizer.EOF_TOKEN) {
+    } else if (token.type === TokenType.EOF) {
         stopParsing(p);
     }
 }

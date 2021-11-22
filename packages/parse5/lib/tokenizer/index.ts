@@ -1,12 +1,24 @@
 import { Preprocessor } from './preprocessor.js';
-import * as unicode from '../common/unicode.js';
-import { TokenType, Token, CharacterToken, DoctypeToken, TagToken, CommentToken, Attribute } from '../common/token.js';
+import {
+    CODE_POINTS as $,
+    CODE_POINT_SEQUENCES as $$,
+    REPLACEMENT_CHARACTER,
+    isSurrogate,
+    isUndefinedCodePoint,
+    isControlCodePoint,
+} from '../common/unicode.js';
+import {
+    TokenType,
+    Token,
+    CharacterToken,
+    DoctypeToken,
+    TagToken,
+    getTokenAttr,
+    CommentToken,
+    Attribute,
+} from '../common/token.js';
 import { namedEntityData as neTree } from './named-entity-data.js';
 import { ERR } from '../common/error-codes.js';
-
-//Aliases
-const $ = unicode.CODE_POINTS;
-const $$ = unicode.CODE_POINT_SEQUENCES;
 
 //C1 Unicode control character reference replacements
 const C1_CONTROLS_REFERENCE_REPLACEMENTS = new Map([
@@ -128,6 +140,16 @@ enum State {
     DECIMAL_CHARACTER_REFERENCE,
     NUMERIC_CHARACTER_REFERENCE_END,
 }
+
+//Tokenizer initial states for different modes
+export const TokenizerMode = {
+    DATA: State.DATA,
+    RCDATA: State.RCDATA,
+    RAWTEXT: State.RAWTEXT,
+    SCRIPT_DATA: State.SCRIPT_DATA,
+    PLAINTEXT: State.PLAINTEXT,
+    CDATA_SECTION: State.CDATA_SECTION,
+} as const;
 
 //Utils
 
@@ -379,7 +401,7 @@ export class Tokenizer {
     _leaveAttrName(toState: State) {
         const token = this.currentToken as TagToken;
 
-        if (Tokenizer.getTokenAttr(token, this.currentAttr.name) === null) {
+        if (getTokenAttr(token, this.currentAttr.name) === null) {
             token.attrs.push(this.currentAttr);
         } else {
             this._err(ERR.duplicateAttribute);
@@ -748,7 +770,7 @@ export class Tokenizer {
             this.state = State.RCDATA_LESS_THAN_SIGN;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._emitEOFToken();
         } else {
@@ -765,7 +787,7 @@ export class Tokenizer {
             this.state = State.RAWTEXT_LESS_THAN_SIGN;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._emitEOFToken();
         } else {
@@ -782,7 +804,7 @@ export class Tokenizer {
             this.state = State.SCRIPT_DATA_LESS_THAN_SIGN;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._emitEOFToken();
         } else {
@@ -797,7 +819,7 @@ export class Tokenizer {
 
         if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._emitEOFToken();
         } else {
@@ -866,7 +888,7 @@ export class Tokenizer {
             token.tagName += toAsciiLowerChar(cp);
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.tagName += unicode.REPLACEMENT_CHARACTER;
+            token.tagName += REPLACEMENT_CHARACTER;
         } else if (cp === $.EOF) {
             this._err(ERR.eofInTag);
             this._emitEOFToken();
@@ -1086,7 +1108,7 @@ export class Tokenizer {
             this.state = State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInScriptHtmlCommentLikeText);
             this._emitEOFToken();
@@ -1106,7 +1128,7 @@ export class Tokenizer {
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
             this.state = State.SCRIPT_DATA_ESCAPED;
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInScriptHtmlCommentLikeText);
             this._emitEOFToken();
@@ -1129,7 +1151,7 @@ export class Tokenizer {
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
             this.state = State.SCRIPT_DATA_ESCAPED;
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInScriptHtmlCommentLikeText);
             this._emitEOFToken();
@@ -1233,7 +1255,7 @@ export class Tokenizer {
             this._emitChars('<');
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInScriptHtmlCommentLikeText);
             this._emitEOFToken();
@@ -1254,7 +1276,7 @@ export class Tokenizer {
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
             this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInScriptHtmlCommentLikeText);
             this._emitEOFToken();
@@ -1278,7 +1300,7 @@ export class Tokenizer {
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
             this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
-            this._emitChars(unicode.REPLACEMENT_CHARACTER);
+            this._emitChars(REPLACEMENT_CHARACTER);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInScriptHtmlCommentLikeText);
             this._emitEOFToken();
@@ -1354,7 +1376,7 @@ export class Tokenizer {
             this.currentAttr.name += String.fromCodePoint(cp);
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.name += unicode.REPLACEMENT_CHARACTER;
+            this.currentAttr.name += REPLACEMENT_CHARACTER;
         } else {
             this.currentAttr.name += String.fromCodePoint(cp);
         }
@@ -1413,7 +1435,7 @@ export class Tokenizer {
             this.state = State.CHARACTER_REFERENCE;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.value += unicode.REPLACEMENT_CHARACTER;
+            this.currentAttr.value += REPLACEMENT_CHARACTER;
         } else if (cp === $.EOF) {
             this._err(ERR.eofInTag);
             this._emitEOFToken();
@@ -1432,7 +1454,7 @@ export class Tokenizer {
             this.state = State.CHARACTER_REFERENCE;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.value += unicode.REPLACEMENT_CHARACTER;
+            this.currentAttr.value += REPLACEMENT_CHARACTER;
         } else if (cp === $.EOF) {
             this._err(ERR.eofInTag);
             this._emitEOFToken();
@@ -1454,7 +1476,7 @@ export class Tokenizer {
             this._emitCurrentToken();
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.value += unicode.REPLACEMENT_CHARACTER;
+            this.currentAttr.value += REPLACEMENT_CHARACTER;
         } else if (
             cp === $.QUOTATION_MARK ||
             cp === $.APOSTROPHE ||
@@ -1520,7 +1542,7 @@ export class Tokenizer {
             this._emitEOFToken();
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.data += unicode.REPLACEMENT_CHARACTER;
+            token.data += REPLACEMENT_CHARACTER;
         } else {
             token.data += String.fromCodePoint(cp);
         }
@@ -1599,7 +1621,7 @@ export class Tokenizer {
             this.state = State.COMMENT_LESS_THAN_SIGN;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.data += unicode.REPLACEMENT_CHARACTER;
+            token.data += REPLACEMENT_CHARACTER;
         } else if (cp === $.EOF) {
             this._err(ERR.eofInComment);
             this._emitCurrentToken();
@@ -1744,7 +1766,7 @@ export class Tokenizer {
             this.state = State.DOCTYPE_NAME;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            this._createDoctypeToken(unicode.REPLACEMENT_CHARACTER);
+            this._createDoctypeToken(REPLACEMENT_CHARACTER);
             this.state = State.DOCTYPE_NAME;
         } else if (cp === $.GREATER_THAN_SIGN) {
             this._err(ERR.missingDoctypeName);
@@ -1778,7 +1800,7 @@ export class Tokenizer {
             token.name += toAsciiLowerChar(cp);
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.name += unicode.REPLACEMENT_CHARACTER;
+            token.name += REPLACEMENT_CHARACTER;
         } else if (cp === $.EOF) {
             this._err(ERR.eofInDoctype);
             token.forceQuirks = true;
@@ -1893,7 +1915,7 @@ export class Tokenizer {
             this.state = State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.publicId += unicode.REPLACEMENT_CHARACTER;
+            token.publicId += REPLACEMENT_CHARACTER;
         } else if (cp === $.GREATER_THAN_SIGN) {
             this._err(ERR.abruptDoctypePublicIdentifier);
             token.forceQuirks = true;
@@ -1918,7 +1940,7 @@ export class Tokenizer {
             this.state = State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.publicId += unicode.REPLACEMENT_CHARACTER;
+            token.publicId += REPLACEMENT_CHARACTER;
         } else if (cp === $.GREATER_THAN_SIGN) {
             this._err(ERR.abruptDoctypePublicIdentifier);
             token.forceQuirks = true;
@@ -2067,7 +2089,7 @@ export class Tokenizer {
             this.state = State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.systemId += unicode.REPLACEMENT_CHARACTER;
+            token.systemId += REPLACEMENT_CHARACTER;
         } else if (cp === $.GREATER_THAN_SIGN) {
             this._err(ERR.abruptDoctypeSystemIdentifier);
             token.forceQuirks = true;
@@ -2092,7 +2114,7 @@ export class Tokenizer {
             this.state = State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER;
         } else if (cp === $.NULL) {
             this._err(ERR.unexpectedNullCharacter);
-            token.systemId += unicode.REPLACEMENT_CHARACTER;
+            token.systemId += REPLACEMENT_CHARACTER;
         } else if (cp === $.GREATER_THAN_SIGN) {
             this._err(ERR.abruptDoctypeSystemIdentifier);
             token.forceQuirks = true;
@@ -2320,12 +2342,12 @@ export class Tokenizer {
         } else if (this.charRefCode > 0x10ffff) {
             this._err(ERR.characterReferenceOutsideUnicodeRange);
             this.charRefCode = $.REPLACEMENT_CHARACTER;
-        } else if (unicode.isSurrogate(this.charRefCode)) {
+        } else if (isSurrogate(this.charRefCode)) {
             this._err(ERR.surrogateCharacterReference);
             this.charRefCode = $.REPLACEMENT_CHARACTER;
-        } else if (unicode.isUndefinedCodePoint(this.charRefCode)) {
+        } else if (isUndefinedCodePoint(this.charRefCode)) {
             this._err(ERR.noncharacterCharacterReference);
-        } else if (unicode.isControlCodePoint(this.charRefCode) || this.charRefCode === $.CARRIAGE_RETURN) {
+        } else if (isControlCodePoint(this.charRefCode) || this.charRefCode === $.CARRIAGE_RETURN) {
             this._err(ERR.controlCharacterReference);
 
             const replacement = C1_CONTROLS_REFERENCE_REPLACEMENTS.get(this.charRefCode);
@@ -2340,37 +2362,4 @@ export class Tokenizer {
         this._flushCodePointsConsumedAsCharacterReference();
         this._reconsumeInState(this.returnState);
     }
-
-    //Token types
-    // TODO Remove in favour of enum
-    static CHARACTER_TOKEN = TokenType.CHARACTER as const;
-    static NULL_CHARACTER_TOKEN = TokenType.NULL_CHARACTER as const;
-    static WHITESPACE_CHARACTER_TOKEN = TokenType.WHITESPACE_CHARACTER as const;
-    static START_TAG_TOKEN = TokenType.START_TAG as const;
-    static END_TAG_TOKEN = TokenType.END_TAG as const;
-    static COMMENT_TOKEN = TokenType.COMMENT as const;
-    static DOCTYPE_TOKEN = TokenType.DOCTYPE as const;
-    static EOF_TOKEN = TokenType.EOF as const;
-    static HIBERNATION_TOKEN = TokenType.HIBERNATION as const;
-
-    //Tokenizer initial states for different modes
-    static MODE = {
-        DATA: State.DATA,
-        RCDATA: State.RCDATA,
-        RAWTEXT: State.RAWTEXT,
-        SCRIPT_DATA: State.SCRIPT_DATA,
-        PLAINTEXT: State.PLAINTEXT,
-        CDATA_SECTION: State.CDATA_SECTION,
-    } as const;
-
-    //Static
-    static getTokenAttr = function (token: TagToken, attrName: string) {
-        for (let i = token.attrs.length - 1; i >= 0; i--) {
-            if (token.attrs[i].name === attrName) {
-                return token.attrs[i].value;
-            }
-        }
-
-        return null;
-    };
 }
