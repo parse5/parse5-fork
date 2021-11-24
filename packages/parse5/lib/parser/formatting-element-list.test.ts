@@ -12,6 +12,7 @@ generateTestsForEachTreeAdapter('FormattingElementList', (treeAdapter) => {
             ackSelfClosing: false,
             selfClosing: false,
             attrs: [],
+            location: null,
         };
     }
 
