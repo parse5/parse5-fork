@@ -910,11 +910,13 @@ export class Tokenizer {
             this.state = State.END_TAG_OPEN;
         } else if (isAsciiLetter(cp)) {
             this._createStartTagToken();
-            this._reconsumeInState(State.TAG_NAME);
+            this.state = State.TAG_NAME;
+            this._stateTagName(cp);
         } else if (cp === $.QUESTION_MARK) {
             this._err(ERR.unexpectedQuestionMarkInsteadOfTagName);
             this._createCommentToken();
-            this._reconsumeInState(State.BOGUS_COMMENT);
+            this.state = State.BOGUS_COMMENT;
+            this._stateBogusComment(cp);
         } else if (cp === $.EOF) {
             this._err(ERR.eofBeforeTagName);
             this._emitChars('<');
@@ -922,7 +924,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.invalidFirstCharacterOfTagName);
             this._emitChars('<');
-            this._reconsumeInState(State.DATA);
+            this.state = State.DATA;
+            this._stateData(cp);
         }
     }
 
@@ -931,7 +934,8 @@ export class Tokenizer {
     private _stateEndTagOpen(cp: number) {
         if (isAsciiLetter(cp)) {
             this._createEndTagToken();
-            this._reconsumeInState(State.TAG_NAME);
+            this.state = State.TAG_NAME;
+            this._stateTagName(cp);
         } else if (cp === $.GREATER_THAN_SIGN) {
             this._err(ERR.missingEndTagName);
             this.state = State.DATA;
@@ -942,7 +946,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.invalidFirstCharacterOfTagName);
             this._createCommentToken();
-            this._reconsumeInState(State.BOGUS_COMMENT);
+            this.state = State.BOGUS_COMMENT;
+            this._stateBogusComment(cp);
         }
     }
 
@@ -979,7 +984,8 @@ export class Tokenizer {
             this.state = State.RCDATA_END_TAG_OPEN;
         } else {
             this._emitChars('<');
-            this._reconsumeInState(State.RCDATA);
+            this.state = State.RCDATA;
+            this._stateRcdata(cp);
         }
     }
 
@@ -988,10 +994,12 @@ export class Tokenizer {
     private _stateRcdataEndTagOpen(cp: number) {
         if (isAsciiLetter(cp)) {
             this._createEndTagToken();
-            this._reconsumeInState(State.RCDATA_END_TAG_NAME);
+            this.state = State.RCDATA_END_TAG_NAME;
+            this._stateRcdataEndTagName(cp);
         } else {
             this._emitChars('</');
-            this._reconsumeInState(State.RCDATA);
+            this.state = State.RCDATA;
+            this._stateRcdata(cp);
         }
     }
 
@@ -1027,7 +1035,8 @@ export class Tokenizer {
 
             this._emitChars('</');
             this._emitSeveralCodePoints(this.tempBuff);
-            this._reconsumeInState(State.RCDATA);
+            this.state = State.RCDATA;
+            this._stateRcdata(cp);
         }
     }
 
@@ -1039,7 +1048,8 @@ export class Tokenizer {
             this.state = State.RAWTEXT_END_TAG_OPEN;
         } else {
             this._emitChars('<');
-            this._reconsumeInState(State.RAWTEXT);
+            this.state = State.RAWTEXT;
+            this._stateRawtext(cp);
         }
     }
 
@@ -1048,10 +1058,12 @@ export class Tokenizer {
     private _stateRawtextEndTagOpen(cp: number) {
         if (isAsciiLetter(cp)) {
             this._createEndTagToken();
-            this._reconsumeInState(State.RAWTEXT_END_TAG_NAME);
+            this.state = State.RAWTEXT_END_TAG_NAME;
+            this._stateRawtextEndTagName(cp);
         } else {
             this._emitChars('</');
-            this._reconsumeInState(State.RAWTEXT);
+            this.state = State.RAWTEXT;
+            this._stateRawtext(cp);
         }
     }
 
@@ -1087,7 +1099,8 @@ export class Tokenizer {
 
             this._emitChars('</');
             this._emitSeveralCodePoints(this.tempBuff);
-            this._reconsumeInState(State.RAWTEXT);
+            this.state = State.RAWTEXT;
+            this._stateRawtext(cp);
         }
     }
 
@@ -1102,7 +1115,8 @@ export class Tokenizer {
             this._emitChars('<!');
         } else {
             this._emitChars('<');
-            this._reconsumeInState(State.SCRIPT_DATA);
+            this.state = State.SCRIPT_DATA;
+            this._stateScriptData(cp);
         }
     }
 
@@ -1111,10 +1125,12 @@ export class Tokenizer {
     private _stateScriptDataEndTagOpen(cp: number) {
         if (isAsciiLetter(cp)) {
             this._createEndTagToken();
-            this._reconsumeInState(State.SCRIPT_DATA_END_TAG_NAME);
+            this.state = State.SCRIPT_DATA_END_TAG_NAME;
+            this._stateScriptDataEndTagName(cp);
         } else {
             this._emitChars('</');
-            this._reconsumeInState(State.SCRIPT_DATA);
+            this.state = State.SCRIPT_DATA;
+            this._stateScriptData(cp);
         }
     }
 
@@ -1146,7 +1162,8 @@ export class Tokenizer {
 
             this._emitChars('</');
             this._emitSeveralCodePoints(this.tempBuff);
-            this._reconsumeInState(State.SCRIPT_DATA);
+            this.state = State.SCRIPT_DATA;
+            this._stateScriptData(cp);
         }
     }
 
@@ -1157,7 +1174,8 @@ export class Tokenizer {
             this.state = State.SCRIPT_DATA_ESCAPE_START_DASH;
             this._emitChars('-');
         } else {
-            this._reconsumeInState(State.SCRIPT_DATA);
+            this.state = State.SCRIPT_DATA;
+            this._stateScriptData(cp);
         }
     }
 
@@ -1168,7 +1186,8 @@ export class Tokenizer {
             this.state = State.SCRIPT_DATA_ESCAPED_DASH_DASH;
             this._emitChars('-');
         } else {
-            this._reconsumeInState(State.SCRIPT_DATA);
+            this.state = State.SCRIPT_DATA;
+            this._stateScriptData(cp);
         }
     }
 
@@ -1244,10 +1263,12 @@ export class Tokenizer {
         } else if (isAsciiLetter(cp)) {
             this.tempBuff = [];
             this._emitChars('<');
-            this._reconsumeInState(State.SCRIPT_DATA_DOUBLE_ESCAPE_START);
+            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPE_START;
+            this._stateScriptDataDoubleEscapeStart(cp);
         } else {
             this._emitChars('<');
-            this._reconsumeInState(State.SCRIPT_DATA_ESCAPED);
+            this.state = State.SCRIPT_DATA_ESCAPED;
+            this._stateScriptDataEscaped(cp);
         }
     }
 
@@ -1256,10 +1277,12 @@ export class Tokenizer {
     private _stateScriptDataEscapedEndTagOpen(cp: number) {
         if (isAsciiLetter(cp)) {
             this._createEndTagToken();
-            this._reconsumeInState(State.SCRIPT_DATA_ESCAPED_END_TAG_NAME);
+            this.state = State.SCRIPT_DATA_ESCAPED_END_TAG_NAME;
+            this._stateScriptDataEscapedEndTagName(cp);
         } else {
             this._emitChars('</');
-            this._reconsumeInState(State.SCRIPT_DATA_ESCAPED);
+            this.state = State.SCRIPT_DATA_ESCAPED;
+            this._stateScriptDataEscaped(cp);
         }
     }
 
@@ -1295,7 +1318,8 @@ export class Tokenizer {
 
             this._emitChars('</');
             this._emitSeveralCodePoints(this.tempBuff);
-            this._reconsumeInState(State.SCRIPT_DATA_ESCAPED);
+            this.state = State.SCRIPT_DATA_ESCAPED;
+            this._stateScriptDataEscaped(cp);
         }
     }
 
@@ -1314,7 +1338,8 @@ export class Tokenizer {
             this.tempBuff.push(cp);
             this._emitCodePoint(cp);
         } else {
-            this._reconsumeInState(State.SCRIPT_DATA_ESCAPED);
+            this.state = State.SCRIPT_DATA_ESCAPED;
+            this._stateScriptDataEscaped(cp);
         }
     }
 
@@ -1392,7 +1417,8 @@ export class Tokenizer {
             this.state = State.SCRIPT_DATA_DOUBLE_ESCAPE_END;
             this._emitChars('/');
         } else {
-            this._reconsumeInState(State.SCRIPT_DATA_DOUBLE_ESCAPED);
+            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
+            this._stateScriptDataDoubleEscaped(cp);
         }
     }
 
@@ -1412,7 +1438,8 @@ export class Tokenizer {
             this.tempBuff.push(cp);
             this._emitCodePoint(cp);
         } else {
-            this._reconsumeInState(State.SCRIPT_DATA_DOUBLE_ESCAPED);
+            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
+            this._stateScriptDataDoubleEscaped(cp);
         }
     }
 
@@ -1424,14 +1451,16 @@ export class Tokenizer {
         }
 
         if (cp === $.SOLIDUS || cp === $.GREATER_THAN_SIGN || cp === $.EOF) {
-            this._reconsumeInState(State.AFTER_ATTRIBUTE_NAME);
+            this.state = State.AFTER_ATTRIBUTE_NAME;
+            this._stateAfterAttributeName(cp);
         } else if (cp === $.EQUALS_SIGN) {
             this._err(ERR.unexpectedEqualsSignBeforeAttributeName);
             this._createAttr('=');
             this.state = State.ATTRIBUTE_NAME;
         } else {
             this._createAttr('');
-            this._reconsumeInState(State.ATTRIBUTE_NAME);
+            this.state = State.ATTRIBUTE_NAME;
+            this._stateAttributeName(cp);
         }
     }
 
@@ -1475,7 +1504,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             this._createAttr('');
-            this._reconsumeInState(State.ATTRIBUTE_NAME);
+            this.state = State.ATTRIBUTE_NAME;
+            this._stateAttributeName(cp);
         }
     }
 
@@ -1495,7 +1525,8 @@ export class Tokenizer {
             this.state = State.DATA;
             this._emitCurrentToken();
         } else {
-            this._reconsumeInState(State.ATTRIBUTE_VALUE_UNQUOTED);
+            this.state = State.ATTRIBUTE_VALUE_UNQUOTED;
+            this._stateAttributeValueUnquoted(cp);
         }
     }
 
@@ -1583,7 +1614,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             this._err(ERR.missingWhitespaceBetweenAttributes);
-            this._reconsumeInState(State.BEFORE_ATTRIBUTE_NAME);
+            this.state = State.BEFORE_ATTRIBUTE_NAME;
+            this._stateBeforeAttributeName(cp);
         }
     }
 
@@ -1599,7 +1631,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             this._err(ERR.unexpectedSolidusInTag);
-            this._reconsumeInState(State.BEFORE_ATTRIBUTE_NAME);
+            this.state = State.BEFORE_ATTRIBUTE_NAME;
+            this._stateBeforeAttributeName(cp);
         }
     }
 
@@ -1646,7 +1679,8 @@ export class Tokenizer {
         else if (!this._ensureHibernation()) {
             this._err(ERR.incorrectlyOpenedComment);
             this._createCommentToken();
-            this._reconsumeInState(State.BOGUS_COMMENT);
+            this.state = State.BOGUS_COMMENT;
+            this._stateBogusComment(cp);
         }
     }
 
@@ -1660,7 +1694,8 @@ export class Tokenizer {
             this.state = State.DATA;
             this._emitCurrentToken();
         } else {
-            this._reconsumeInState(State.COMMENT);
+            this.state = State.COMMENT;
+            this._stateComment(cp);
         }
     }
 
@@ -1679,7 +1714,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             (this.currentToken as CommentToken).data += '-';
-            this._reconsumeInState(State.COMMENT);
+            this.state = State.COMMENT;
+            this._stateComment(cp);
         }
     }
 
@@ -1716,7 +1752,8 @@ export class Tokenizer {
         } else if (cp === $.LESS_THAN_SIGN) {
             token.data += '<';
         } else {
-            this._reconsumeInState(State.COMMENT);
+            this.state = State.COMMENT;
+            this._stateComment(cp);
         }
     }
 
@@ -1726,7 +1763,8 @@ export class Tokenizer {
         if (cp === $.HYPHEN_MINUS) {
             this.state = State.COMMENT_LESS_THAN_SIGN_BANG_DASH;
         } else {
-            this._reconsumeInState(State.COMMENT);
+            this.state = State.COMMENT;
+            this._stateComment(cp);
         }
     }
 
@@ -1736,7 +1774,8 @@ export class Tokenizer {
         if (cp === $.HYPHEN_MINUS) {
             this.state = State.COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH;
         } else {
-            this._reconsumeInState(State.COMMENT_END_DASH);
+            this.state = State.COMMENT_END_DASH;
+            this._stateCommentEndDash(cp);
         }
     }
 
@@ -1747,7 +1786,8 @@ export class Tokenizer {
             this._err(ERR.nestedComment);
         }
 
-        this._reconsumeInState(State.COMMENT_END);
+        this.state = State.COMMENT_END;
+        this._stateCommentEnd(cp);
     }
 
     // Comment end dash state
@@ -1761,7 +1801,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             (this.currentToken as CommentToken).data += '-';
-            this._reconsumeInState(State.COMMENT);
+            this.state = State.COMMENT;
+            this._stateComment(cp);
         }
     }
 
@@ -1783,7 +1824,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             token.data += '--';
-            this._reconsumeInState(State.COMMENT);
+            this.state = State.COMMENT;
+            this._stateComment(cp);
         }
     }
 
@@ -1805,7 +1847,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             token.data += '--!';
-            this._reconsumeInState(State.COMMENT);
+            this.state = State.COMMENT;
+            this._stateComment(cp);
         }
     }
 
@@ -1815,7 +1858,8 @@ export class Tokenizer {
         if (isWhitespace(cp)) {
             this.state = State.BEFORE_DOCTYPE_NAME;
         } else if (cp === $.GREATER_THAN_SIGN) {
-            this._reconsumeInState(State.BEFORE_DOCTYPE_NAME);
+            this.state = State.BEFORE_DOCTYPE_NAME;
+            this._stateBeforeDoctypeName(cp);
         } else if (cp === $.EOF) {
             this._err(ERR.eofInDoctype);
             this._createDoctypeToken(null);
@@ -1824,7 +1868,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             this._err(ERR.missingWhitespaceBeforeDoctypeName);
-            this._reconsumeInState(State.BEFORE_DOCTYPE_NAME);
+            this.state = State.BEFORE_DOCTYPE_NAME;
+            this._stateBeforeDoctypeName(cp);
         }
     }
 
@@ -1912,7 +1957,8 @@ export class Tokenizer {
         else if (!this._ensureHibernation()) {
             this._err(ERR.invalidCharacterSequenceAfterDoctypeName);
             token.forceQuirks = true;
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -1944,7 +1990,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.missingQuoteBeforeDoctypePublicIdentifier);
             token.forceQuirks = true;
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -1976,7 +2023,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.missingQuoteBeforeDoctypePublicIdentifier);
             token.forceQuirks = true;
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -2056,7 +2104,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
             token.forceQuirks = true;
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -2086,7 +2135,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
             token.forceQuirks = true;
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -2118,7 +2168,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
             token.forceQuirks = true;
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -2150,7 +2201,8 @@ export class Tokenizer {
         } else {
             this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
             token.forceQuirks = true;
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -2223,7 +2275,8 @@ export class Tokenizer {
             this._emitEOFToken();
         } else {
             this._err(ERR.unexpectedCharacterAfterDoctypeSystemIdentifier);
-            this._reconsumeInState(State.BOGUS_DOCTYPE);
+            this.state = State.BOGUS_DOCTYPE;
+            this._stateBogusDoctype(cp);
         }
     }
 
@@ -2261,7 +2314,8 @@ export class Tokenizer {
             this.state = State.CDATA_SECTION_END;
         } else {
             this._emitChars(']');
-            this._reconsumeInState(State.CDATA_SECTION);
+            this.state = State.CDATA_SECTION;
+            this._stateCdataSection(cp);
         }
     }
 
@@ -2274,7 +2328,8 @@ export class Tokenizer {
             this._emitChars(']');
         } else {
             this._emitChars(']]');
-            this._reconsumeInState(State.CDATA_SECTION);
+            this.state = State.CDATA_SECTION;
+            this._stateCdataSection(cp);
         }
     }
 
@@ -2287,7 +2342,8 @@ export class Tokenizer {
             this.tempBuff.push(cp);
             this.state = State.NUMERIC_CHARACTER_REFERENCE;
         } else if (isAsciiAlphaNumeric(cp)) {
-            this._reconsumeInState(State.NAMED_CHARACTER_REFERENCE);
+            this.state = State.NAMED_CHARACTER_REFERENCE;
+            this._stateNamedCharacterReference(cp);
         } else {
             this._flushCodePointsConsumedAsCharacterReference();
             this._reconsumeInState(this.returnState);
@@ -2349,7 +2405,8 @@ export class Tokenizer {
             this.tempBuff.push(cp);
             this.state = State.HEXADEMICAL_CHARACTER_REFERENCE_START;
         } else {
-            this._reconsumeInState(State.DECIMAL_CHARACTER_REFERENCE_START);
+            this.state = State.DECIMAL_CHARACTER_REFERENCE_START;
+            this._stateDecimalCharacterReferenceStart(cp);
         }
     }
 
@@ -2357,7 +2414,8 @@ export class Tokenizer {
     //------------------------------------------------------------------
     private _stateHexademicalCharacterReferenceStart(cp: number) {
         if (isAsciiHexDigit(cp)) {
-            this._reconsumeInState(State.HEXADEMICAL_CHARACTER_REFERENCE);
+            this.state = State.HEXADEMICAL_CHARACTER_REFERENCE;
+            this._stateHexademicalCharacterReference(cp);
         } else {
             this._err(ERR.absenceOfDigitsInNumericCharacterReference);
             this._flushCodePointsConsumedAsCharacterReference();
@@ -2369,7 +2427,8 @@ export class Tokenizer {
     //------------------------------------------------------------------
     private _stateDecimalCharacterReferenceStart(cp: number) {
         if (isAsciiDigit(cp)) {
-            this._reconsumeInState(State.DECIMAL_CHARACTER_REFERENCE);
+            this.state = State.DECIMAL_CHARACTER_REFERENCE;
+            this._stateDecimalCharacterReference(cp);
         } else {
             this._err(ERR.absenceOfDigitsInNumericCharacterReference);
             this._flushCodePointsConsumedAsCharacterReference();
@@ -2390,7 +2449,8 @@ export class Tokenizer {
             this.state = State.NUMERIC_CHARACTER_REFERENCE_END;
         } else {
             this._err(ERR.missingSemicolonAfterCharacterReference);
-            this._reconsumeInState(State.NUMERIC_CHARACTER_REFERENCE_END);
+            this.state = State.NUMERIC_CHARACTER_REFERENCE_END;
+            this._stateNumericCharacterReferenceEnd();
         }
     }
 
@@ -2403,7 +2463,8 @@ export class Tokenizer {
             this.state = State.NUMERIC_CHARACTER_REFERENCE_END;
         } else {
             this._err(ERR.missingSemicolonAfterCharacterReference);
-            this._reconsumeInState(State.NUMERIC_CHARACTER_REFERENCE_END);
+            this.state = State.NUMERIC_CHARACTER_REFERENCE_END;
+            this._stateNumericCharacterReferenceEnd();
         }
     }
 
