@@ -1,5 +1,5 @@
-import { ParserOptions } from './../../packages/parse5/lib/parser/index';
-import { ParserError } from './../../packages/parse5/lib/extensions/error-reporting/mixin-base';
+import { ParserOptions } from './../../packages/parse5/lib/parser/index.js';
+import { ParserError } from './../../packages/parse5/lib/common/error-codes.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as assert from 'assert';
