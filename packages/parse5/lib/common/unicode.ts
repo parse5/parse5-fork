@@ -51,26 +51,26 @@ export const CODE_POINT_SEQUENCES = {
 };
 
 //Surrogates
-export function isSurrogate(cp: number) {
+export function isSurrogate(cp: number): boolean {
     return cp >= 0xd800 && cp <= 0xdfff;
 }
 
-export function isSurrogatePair(cp: number) {
+export function isSurrogatePair(cp: number): boolean {
     return cp >= 0xdc00 && cp <= 0xdfff;
 }
 
-export function getSurrogatePairCodePoint(cp1: number, cp2: number) {
+export function getSurrogatePairCodePoint(cp1: number, cp2: number): number {
     return (cp1 - 0xd800) * 0x400 + 0x2400 + cp2;
 }
 
 //NOTE: excluding NULL and ASCII whitespace
-export function isControlCodePoint(cp: number) {
+export function isControlCodePoint(cp: number): boolean {
     return (
         (cp !== 0x20 && cp !== 0x0a && cp !== 0x0d && cp !== 0x09 && cp !== 0x0c && cp >= 0x01 && cp <= 0x1f) ||
         (cp >= 0x7f && cp <= 0x9f)
     );
 }
 
-export function isUndefinedCodePoint(cp: number) {
+export function isUndefinedCodePoint(cp: number): boolean {
     return (cp >= 0xfdd0 && cp <= 0xfdef) || UNDEFINED_CODE_POINTS.has(cp);
 }
