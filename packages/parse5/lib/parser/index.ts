@@ -2,12 +2,11 @@ import { Tokenizer, TokenizerMode } from '../tokenizer/index.js';
 import { OpenElementStack } from './open-element-stack.js';
 import { FormattingElementList, ElementEntry, EntryType } from './formatting-element-list.js';
 import { LocationInfoParserMixin } from '../extensions/location-info/parser-mixin.js';
-import { ErrorReportingParserMixin } from '../extensions/error-reporting/parser-mixin.js';
 import { Mixin } from '../utils/mixin.js';
 import * as defaultTreeAdapter from '../tree-adapters/default.js';
 import * as doctype from '../common/doctype.js';
 import * as foreignContent from '../common/foreign-content.js';
-import { ERR } from '../common/error-codes.js';
+import { ERR, ParserErrorHandler } from '../common/error-codes.js';
 import * as unicode from '../common/unicode.js';
 import {
     TAG_NAMES as $,
@@ -18,7 +17,6 @@ import {
     isNumberedHeader,
 } from '../common/html.js';
 import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface.js';
-import type { ParserError } from '../common/error-codes.js';
 import {
     TokenType,
     getTokenAttr,
@@ -89,6 +87,15 @@ const TEMPLATE_INSERTION_MODE_SWITCH_MAP = new Map<string, InsertionMode>([
     [$.TH, InsertionMode.IN_ROW],
 ]);
 
+const BASE_LOC = {
+    startLine: -1,
+    startCol: -1,
+    startOffset: -1,
+    endLine: -1,
+    endCol: -1,
+    endOffset: -1,
+};
+
 const TABLE_STRUCTURE_TAGS = new Set<string>([$.TABLE, $.TBODY, $.TFOOT, $.THEAD, $.TR]);
 
 export interface ParserOptions<T extends TreeAdapterTypeMap> {
@@ -124,7 +131,7 @@ export interface ParserOptions<T extends TreeAdapterTypeMap> {
      *
      * @default `null`
      */
-    onParseError?: ((err: ParserError) => void) | null;
+    onParseError?: ParserErrorHandler | null;
 }
 
 //Parser
@@ -132,6 +139,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     options: ParserOptions<T>;
     treeAdapter: TreeAdapter<T>;
     pendingScript: null | T['element'];
+    private onParseError: ParserErrorHandler | null;
 
     constructor(options?: ParserOptions<T>) {
         this.options = {
@@ -145,8 +153,9 @@ export class Parser<T extends TreeAdapterTypeMap> {
         this.treeAdapter = this.options.treeAdapter!;
         this.pendingScript = null;
 
+        this.onParseError = this.options.onParseError ?? null;
+
         if (this.options.onParseError) {
-            Mixin.install(this, ErrorReportingParserMixin as any, { onParseError: this.options.onParseError });
             this.options.sourceCodeLocationInfo = true;
         }
 
@@ -255,8 +264,21 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Errors
-    _err(_err: ERR, _opts?: { beforeToken: boolean }) {
-        // NOTE: err reporting is noop by default. Enabled by mixin.
+    _err(token: Token, code: ERR, beforeToken?: boolean) {
+        if (!this.onParseError) return;
+
+        const loc = token.location ?? BASE_LOC;
+        const err = {
+            code,
+            startLine: loc.startLine,
+            startCol: loc.startCol,
+            startOffset: loc.startOffset,
+            endLine: beforeToken ? loc.startLine : loc.endLine,
+            endCol: beforeToken ? loc.startCol : loc.endCol,
+            endOffset: beforeToken ? loc.startOffset : loc.endOffset,
+        };
+
+        this.onParseError(err);
     }
 
     //Parsing loop
@@ -572,7 +594,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
 
         if (token.type === TokenType.START_TAG && token.selfClosing && !token.ackSelfClosing) {
-            this._err(ERR.nonVoidHtmlElementStartTagWithTrailingSolidus);
+            this._err(token, ERR.nonVoidHtmlElementStartTagWithTrailingSolidus);
         }
     }
 
@@ -911,8 +933,8 @@ function callAdoptionAgency<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 //Generic token handlers
 //------------------------------------------------------------------
 
-function misplacedDoctype<T extends TreeAdapterTypeMap>(p: Parser<T>) {
-    p._err(ERR.misplacedDoctype);
+function misplacedDoctype<T extends TreeAdapterTypeMap>(p: Parser<T>, token: DoctypeToken) {
+    p._err(token, ERR.misplacedDoctype);
 }
 
 function appendComment<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CommentToken) {
@@ -949,7 +971,7 @@ function doctypeInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     const mode = token.forceQuirks ? DOCUMENT_MODE.QUIRKS : doctype.getDocumentMode(token);
 
     if (!doctype.isConforming(token)) {
-        p._err(ERR.nonConformingDoctype);
+        p._err(token, ERR.nonConformingDoctype);
     }
 
     p.treeAdapter.setDocumentMode(p.document, mode);
@@ -958,7 +980,7 @@ function doctypeInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
 }
 
 function tokenInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    p._err(ERR.missingDoctype, { beforeToken: true });
+    p._err(token, ERR.missingDoctype, true);
     p.treeAdapter.setDocumentMode(p.document, DOCUMENT_MODE.QUIRKS);
     p.insertionMode = InsertionMode.BEFORE_HTML;
     p._processToken(token);
@@ -1009,7 +1031,7 @@ function modeBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
     } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
     } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p);
+        misplacedDoctype(p, token);
     } else if (token.type === TokenType.START_TAG) {
         startTagBeforeHead(p, token);
     } else if (token.type === TokenType.END_TAG) {
@@ -1037,7 +1059,7 @@ function endTagBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     if (tn === $.HEAD || tn === $.BODY || tn === $.HTML || tn === $.BR) {
         tokenBeforeHead(p, token);
     } else {
-        p._err(ERR.endTagWithoutMatchingOpenElement);
+        p._err(token, ERR.endTagWithoutMatchingOpenElement);
     }
 }
 
@@ -1058,7 +1080,7 @@ function modeInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
     } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
     } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p);
+        misplacedDoctype(p, token);
     } else if (token.type === TokenType.START_TAG) {
         startTagInHead(p, token);
     } else if (token.type === TokenType.END_TAG) {
@@ -1094,7 +1116,7 @@ function startTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
         p.insertionMode = InsertionMode.IN_TEMPLATE;
         p.tmplInsertionModeStack.unshift(InsertionMode.IN_TEMPLATE);
     } else if (tn === $.HEAD) {
-        p._err(ERR.misplacedStartTagForHeadElement);
+        p._err(token, ERR.misplacedStartTagForHeadElement);
     } else {
         tokenInHead(p, token);
     }
@@ -1113,7 +1135,7 @@ function endTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
             p.openElements.generateImpliedEndTagsThoroughly();
 
             if (p.openElements.currentTagName !== $.TEMPLATE) {
-                p._err(ERR.closingOfElementWithOpenChildElements);
+                p._err(token, ERR.closingOfElementWithOpenChildElements);
             }
 
             p.openElements.popUntilTagNamePopped($.TEMPLATE);
@@ -1121,10 +1143,10 @@ function endTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
             p.tmplInsertionModeStack.shift();
             p._resetInsertionMode();
         } else {
-            p._err(ERR.endTagWithoutMatchingOpenElement);
+            p._err(token, ERR.endTagWithoutMatchingOpenElement);
         }
     } else {
-        p._err(ERR.endTagWithoutMatchingOpenElement);
+        p._err(token, ERR.endTagWithoutMatchingOpenElement);
     }
 }
 
@@ -1144,7 +1166,7 @@ function modeInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
     } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p);
+        misplacedDoctype(p, token);
     } else if (token.type === TokenType.START_TAG) {
         startTagInHeadNoScript(p, token);
     } else if (token.type === TokenType.END_TAG) {
@@ -1168,7 +1190,7 @@ function startTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     ) {
         startTagInHead(p, token);
     } else if (tn === $.NOSCRIPT) {
-        p._err(ERR.nestedNoscriptInHead);
+        p._err(token, ERR.nestedNoscriptInHead);
     } else {
         tokenInHeadNoScript(p, token);
     }
@@ -1183,14 +1205,14 @@ function endTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     } else if (tn === $.BR) {
         tokenInHeadNoScript(p, token);
     } else {
-        p._err(ERR.endTagWithoutMatchingOpenElement);
+        p._err(token, ERR.endTagWithoutMatchingOpenElement);
     }
 }
 
 function tokenInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
     const errCode = token.type === TokenType.EOF ? ERR.openElementsLeftAfterEof : ERR.disallowedContentInNoscriptInHead;
 
-    p._err(errCode);
+    p._err(token, errCode);
     p.openElements.pop();
     p.insertionMode = InsertionMode.IN_HEAD;
     p._processToken(token);
@@ -1206,7 +1228,7 @@ function modeAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
     } else if (token.type === TokenType.COMMENT) {
         appendComment(p, token);
     } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p);
+        misplacedDoctype(p, token);
     } else if (token.type === TokenType.START_TAG) {
         startTagAfterHead(p, token);
     } else if (token.type === TokenType.END_TAG) {
@@ -1240,12 +1262,12 @@ function startTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
         p._insertElement(token, NS.HTML);
         p.insertionMode = InsertionMode.IN_FRAMESET;
     } else if (ABANDONED_HEAD_ELEMENT_CHILDS.has(tn)) {
-        p._err(ERR.abandonedHeadElementChild);
+        p._err(token, ERR.abandonedHeadElementChild);
         p.openElements.push(p.headElement!);
         startTagInHead(p, token);
         p.openElements.remove(p.headElement!);
     } else if (tn === $.HEAD) {
-        p._err(ERR.misplacedStartTagForHeadElement);
+        p._err(token, ERR.misplacedStartTagForHeadElement);
     } else {
         tokenAfterHead(p, token);
     }
@@ -1259,7 +1281,7 @@ function endTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
     } else if (tn === $.TEMPLATE) {
         endTagInHead(p, token);
     } else {
-        p._err(ERR.endTagWithoutMatchingOpenElement);
+        p._err(token, ERR.endTagWithoutMatchingOpenElement);
     }
 }
 
@@ -2126,7 +2148,7 @@ function endTagInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
 }
 
 function eofInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    p._err(ERR.eofInElementThatCanContainOnlyText);
+    p._err(token, ERR.eofInElementThatCanContainOnlyText);
     p.openElements.pop();
     p.insertionMode = p.originalInsertionMode;
     p._processToken(token);
