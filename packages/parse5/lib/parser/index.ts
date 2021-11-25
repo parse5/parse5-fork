@@ -23,6 +23,7 @@ import {
     CharacterToken,
     TagToken,
     DoctypeToken,
+    EOFToken,
     LocationWithAttributes,
     ElementLocation,
 } from '../common/token.js';
@@ -175,9 +176,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     parseFragment(html: string, fragmentContext?: T['parentNode'] | null): T['documentFragment'] {
         //NOTE: use <template> element as a fragment context if context element was not provided,
         //so we will parse in "forgiving" manner
-        if (!fragmentContext) {
-            fragmentContext = this.treeAdapter.createElement($.TEMPLATE, NS.HTML, []);
-        }
+        fragmentContext ??= this.treeAdapter.createElement($.TEMPLATE, NS.HTML, []);
 
         //NOTE: create fake element which will be used as 'document' for fragment parsing.
         //This is important for jsdom there 'document' can't be recreated, therefore
@@ -256,9 +255,9 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
         this.activeFormattingElements = new FormattingElementList(this.treeAdapter);
 
-        this.tmplInsertionModeStack = [];
+        this.tmplInsertionModeStack.length = 0;
 
-        this.pendingCharacterTokens = [];
+        this.pendingCharacterTokens.length = 0;
         this.hasNonWhitespacePendingCharacterToken = false;
 
         this.framesetOk = true;
@@ -316,14 +315,6 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
             if (scriptHandler && this.pendingScript) {
                 break;
-            }
-        }
-
-        if (this.options.sourceCodeLocationInfo) {
-            // NOTE: generate location info for elements
-            // that remains on open element stack
-            for (let i = this.openElements.stackTop; i >= 0; i--) {
-                this._setEndLocation(this.openElements.items[i], this.currentToken!);
             }
         }
     }
@@ -538,7 +529,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
     }
 
-    private _setEndLocation(element: T['element'], closingToken: Token) {
+    _setEndLocation(element: T['element'], closingToken: Token) {
         const loc = this.treeAdapter.getNodeSourceCodeLocation(element);
 
         if (loc && closingToken.location) {
@@ -1042,8 +1033,16 @@ function appendCommentToDocument<T extends TreeAdapterTypeMap>(p: Parser<T>, tok
     p._appendCommentNode(token, p.document);
 }
 
-function stopParsing<T extends TreeAdapterTypeMap>(p: Parser<T>) {
+function stopParsing<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken) {
     p.stopped = true;
+
+    if (token.location) {
+        // NOTE: generate location info for elements
+        // that remains on open element stack
+        for (let i = p.openElements.stackTop; i >= 0; i--) {
+            p._setEndLocation(p.openElements.items[i], token);
+        }
+    }
 }
 
 // The "initial" insertion mode
@@ -2207,11 +2206,11 @@ function endTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
     }
 }
 
-function eofInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
+function eofInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken) {
     if (p.tmplInsertionModeStack.length > 0) {
         eofInTemplate(p, token);
     } else {
-        p.stopped = true;
+        stopParsing(p, token);
     }
 }
 
@@ -2240,7 +2239,7 @@ function endTagInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
     p.insertionMode = p.originalInsertionMode;
 }
 
-function eofInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
+function eofInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken) {
     p._err(token, ERR.eofInElementThatCanContainOnlyText);
     p.openElements.pop();
     p.insertionMode = p.originalInsertionMode;
@@ -3030,7 +3029,7 @@ function endTagInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     }
 }
 
-function eofInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
+function eofInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken) {
     if (p.openElements.tmplCount > 0) {
         p.openElements.popUntilTagNamePopped($.TEMPLATE);
         p.activeFormattingElements.clearToLastMarker();
@@ -3038,7 +3037,7 @@ function eofInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
         p._resetInsertionMode();
         p._processToken(token);
     } else {
-        p.stopped = true;
+        stopParsing(p, token);
     }
 }
 
@@ -3056,7 +3055,7 @@ function modeAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
     } else if (token.type === TokenType.END_TAG) {
         endTagAfterBody(p, token);
     } else if (token.type === TokenType.EOF) {
-        stopParsing(p);
+        stopParsing(p, token);
     }
 }
 
@@ -3095,7 +3094,7 @@ function modeInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
     } else if (token.type === TokenType.END_TAG) {
         endTagInFrameset(p, token);
     } else if (token.type === TokenType.EOF) {
-        stopParsing(p);
+        stopParsing(p, token);
     }
 }
 
@@ -3136,7 +3135,7 @@ function modeAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: To
     } else if (token.type === TokenType.END_TAG) {
         endTagAfterFrameset(p, token);
     } else if (token.type === TokenType.EOF) {
-        stopParsing(p);
+        stopParsing(p, token);
     }
 }
 
@@ -3172,7 +3171,7 @@ function modeAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     } else if (token.type === TokenType.START_TAG) {
         startTagAfterAfterBody(p, token);
     } else if (token.type === TokenType.EOF) {
-        stopParsing(p);
+        stopParsing(p, token);
     }
 }
 
@@ -3199,7 +3198,7 @@ function modeAfterAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     } else if (token.type === TokenType.START_TAG) {
         startTagAfterAfterFrameset(p, token);
     } else if (token.type === TokenType.EOF) {
-        stopParsing(p);
+        stopParsing(p, token);
     }
 }
 
