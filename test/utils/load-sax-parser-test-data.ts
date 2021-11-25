@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { normalizeNewLine } from './common.js';
 
-export function loadSAXParserTestData() {
+export function loadSAXParserTestData(): { name: string; src: string; expected: string }[] {
     const dataDirPath = new URL('../data/sax', import.meta.url);
     const testSetFileDirs = fs.readdirSync(dataDirPath);
 
