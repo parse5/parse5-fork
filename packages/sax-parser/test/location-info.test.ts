@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import { SAXParser } from '../lib/index.js';
 import { loadSAXParserTestData } from '../../../test/utils/load-sax-parser-test-data.js';
 import { writeChunkedToStream } from '../../../test/utils/common.js';
-import type { Location } from '@parse5/parse5/lib/common/token';
+import type { Location } from 'parse5/lib/common/token';
 
 describe('location-info', () => {
     it('Location info (SAX)', () => {
