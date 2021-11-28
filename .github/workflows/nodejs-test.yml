@@ -19,7 +19,7 @@ jobs:
                   submodules: recursive
             - uses: actions/setup-node@v2
               with:
-                  node-version: 16
+                  node-version: lts/*
                   cache: npm
             - run: npm ci
             - run: npm run lint
@@ -35,6 +35,7 @@ jobs:
                     - 12
                     - 14
                     - 16
+                    - lts/*
 
         steps:
             - uses: actions/checkout@v2
