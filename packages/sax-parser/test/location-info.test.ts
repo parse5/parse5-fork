@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { SAXParser } from '../lib/index.js';
-import { loadSAXParserTestData } from '../../../test/utils/load-sax-parser-test-data.js';
-import { writeChunkedToStream } from '../../../test/utils/common.js';
+import { loadSAXParserTestData } from '@parse5/test-utils/utils/load-sax-parser-test-data.js';
+import { writeChunkedToStream } from '@parse5/test-utils/utils/common.js';
 import type { Location } from 'parse5/lib/common/token';
 
 describe('location-info', () => {
