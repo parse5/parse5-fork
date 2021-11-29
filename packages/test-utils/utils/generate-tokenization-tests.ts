@@ -1,9 +1,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Tokenizer, TokenizerMode } from '../../packages/parse5/lib/tokenizer/index.js';
+import { Tokenizer, TokenizerMode } from 'parse5/lib/tokenizer/index.js';
 import { makeChunks } from './common.js';
-import { TokenType, Token } from './../../packages/parse5/lib/common/token';
+import { TokenType, Token } from 'parse5/lib/common/token.js';
 
 type HtmlLibToken = [string, string | null, ...unknown[]];
 
