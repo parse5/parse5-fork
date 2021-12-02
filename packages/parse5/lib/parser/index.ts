@@ -370,21 +370,21 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     _findFormInFragmentContext() {
-        let node = this.fragmentContext!;
+        let node = this.fragmentContext;
 
-        do {
+        while (node) {
             if (this.treeAdapter.getTagName(node) === $.FORM) {
                 this.formElement = node;
                 break;
             }
 
-            node = this.treeAdapter.getParentNode(node)!;
-        } while (node);
+            node = this.treeAdapter.getParentNode(node);
+        }
     }
 
     _initTokenizerForFragmentParsing() {
-        if (this.treeAdapter.getNamespaceURI(this.fragmentContext!) === NS.HTML) {
-            const tn = this.treeAdapter.getTagName(this.fragmentContext!);
+        if (this.fragmentContext && this.treeAdapter.getNamespaceURI(this.fragmentContext) === NS.HTML) {
+            const tn = this.treeAdapter.getTagName(this.fragmentContext);
 
             if (tn === $.TITLE || tn === $.TEXTAREA) {
                 this.tokenizer.state = TokenizerMode.RCDATA;
@@ -760,7 +760,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
                 this._resetInsertionModeForSelect(i);
                 break;
             } else if (tn === $.TEMPLATE) {
-                this.insertionMode = this.tmplInsertionModeStack[0]!;
+                this.insertionMode = this.tmplInsertionModeStack[0];
                 break;
             } else if (tn === $.HTML) {
                 this.insertionMode = this.headElement ? InsertionMode.AFTER_HEAD : InsertionMode.BEFORE_HEAD;
@@ -845,7 +845,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         const tn = this.treeAdapter.getTagName(element);
         const ns = this.treeAdapter.getNamespaceURI(element);
 
-        return (SPECIAL_ELEMENTS as any)[ns].has(tn);
+        return SPECIAL_ELEMENTS[ns].has(tn);
     }
 }
 
@@ -1994,8 +1994,8 @@ function formEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>) {
 
         if (inTemplate) {
             p.openElements.popUntilTagNamePopped($.FORM);
-        } else {
-            p.openElements.remove(formElement!);
+        } else if (formElement) {
+            p.openElements.remove(formElement);
         }
     }
 }
@@ -2265,9 +2265,9 @@ function modeInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
 }
 
 function characterInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken) {
-    const curTn = p.openElements.currentTagName!;
+    const curTn = p.openElements.currentTagName;
 
-    if (TABLE_STRUCTURE_TAGS.has(curTn)) {
+    if (curTn != null && TABLE_STRUCTURE_TAGS.has(curTn)) {
         p.pendingCharacterTokens = [];
         p.hasNonWhitespacePendingCharacterToken = false;
         p.originalInsertionMode = p.insertionMode;
