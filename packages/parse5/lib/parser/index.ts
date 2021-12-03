@@ -64,19 +64,6 @@ enum InsertionMode {
     AFTER_AFTER_FRAMESET,
 }
 
-//Insertion mode reset map
-const INSERTION_MODE_RESET_MAP = new Map<$, InsertionMode>([
-    [$.TR, InsertionMode.IN_ROW],
-    [$.TBODY, InsertionMode.IN_TABLE_BODY],
-    [$.THEAD, InsertionMode.IN_TABLE_BODY],
-    [$.TFOOT, InsertionMode.IN_TABLE_BODY],
-    [$.CAPTION, InsertionMode.IN_CAPTION],
-    [$.COLGROUP, InsertionMode.IN_COLUMN_GROUP],
-    [$.TABLE, InsertionMode.IN_TABLE],
-    [$.BODY, InsertionMode.IN_BODY],
-    [$.FRAMESET, InsertionMode.IN_FRAMESET],
-]);
-
 //Template insertion mode switch map
 const TEMPLATE_INSERTION_MODE_SWITCH_MAP = new Map<$, InsertionMode>([
     [$.CAPTION, InsertionMode.IN_TABLE],
@@ -737,42 +724,58 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
     //Insertion modes
     _resetInsertionMode() {
-        for (let i = this.openElements.stackTop, last = false; i >= 0; i--) {
-            let tn = this.openElements.tagIDs[i];
-
-            if (i === 0) {
-                last = true;
-
-                if (this.fragmentContext) {
-                    tn = this.fragmentContextID;
-                }
-            }
-
-            const newInsertionMode = INSERTION_MODE_RESET_MAP.get(tn);
-
-            if (newInsertionMode !== undefined) {
-                this.insertionMode = newInsertionMode;
-                break;
-            } else if (!last && (tn === $.TD || tn === $.TH)) {
-                this.insertionMode = InsertionMode.IN_CELL;
-                break;
-            } else if (!last && tn === $.HEAD) {
-                this.insertionMode = InsertionMode.IN_HEAD;
-                break;
-            } else if (tn === $.SELECT) {
-                this._resetInsertionModeForSelect(i);
-                break;
-            } else if (tn === $.TEMPLATE) {
-                this.insertionMode = this.tmplInsertionModeStack[0];
-                break;
-            } else if (tn === $.HTML) {
-                this.insertionMode = this.headElement ? InsertionMode.AFTER_HEAD : InsertionMode.BEFORE_HEAD;
-                break;
-            } else if (last) {
-                this.insertionMode = InsertionMode.IN_BODY;
-                break;
+        for (let i = this.openElements.stackTop; i >= 0; i--) {
+            //Insertion mode reset map
+            switch (i === 0 && this.fragmentContext ? this.fragmentContextID : this.openElements.tagIDs[i]) {
+                case $.TR:
+                    this.insertionMode = InsertionMode.IN_ROW;
+                    return;
+                case $.TBODY:
+                case $.THEAD:
+                case $.TFOOT:
+                    this.insertionMode = InsertionMode.IN_TABLE_BODY;
+                    return;
+                case $.CAPTION:
+                    this.insertionMode = InsertionMode.IN_CAPTION;
+                    return;
+                case $.COLGROUP:
+                    this.insertionMode = InsertionMode.IN_COLUMN_GROUP;
+                    return;
+                case $.TABLE:
+                    this.insertionMode = InsertionMode.IN_TABLE;
+                    return;
+                case $.BODY:
+                    this.insertionMode = InsertionMode.IN_BODY;
+                    return;
+                case $.FRAMESET:
+                    this.insertionMode = InsertionMode.IN_FRAMESET;
+                    return;
+                case $.SELECT:
+                    this._resetInsertionModeForSelect(i);
+                    return;
+                case $.TEMPLATE:
+                    this.insertionMode = this.tmplInsertionModeStack[0];
+                    return;
+                case $.HTML:
+                    this.insertionMode = this.headElement ? InsertionMode.AFTER_HEAD : InsertionMode.BEFORE_HEAD;
+                    return;
+                case $.TD:
+                case $.TH:
+                    if (i > 0) {
+                        this.insertionMode = InsertionMode.IN_CELL;
+                        return;
+                    }
+                    break;
+                case $.HEAD:
+                    if (i > 0) {
+                        this.insertionMode = InsertionMode.IN_HEAD;
+                        return;
+                    }
+                    break;
             }
         }
+
+        this.insertionMode = InsertionMode.IN_BODY;
     }
 
     _resetInsertionModeForSelect(selectIdx: number) {
@@ -1330,19 +1333,6 @@ function modeAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
     }
 }
 
-const ABANDONED_HEAD_ELEMENT_CHILDS = new Set<$>([
-    $.BASE,
-    $.BASEFONT,
-    $.BGSOUND,
-    $.LINK,
-    $.META,
-    $.NOFRAMES,
-    $.SCRIPT,
-    $.STYLE,
-    $.TEMPLATE,
-    $.TITLE,
-]);
-
 function startTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
     const tn = token.tagID;
 
@@ -1355,7 +1345,18 @@ function startTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
     } else if (tn === $.FRAMESET) {
         p._insertElement(token, NS.HTML);
         p.insertionMode = InsertionMode.IN_FRAMESET;
-    } else if (ABANDONED_HEAD_ELEMENT_CHILDS.has(tn)) {
+    } else if (
+        tn === $.BASE ||
+        tn === $.BASEFONT ||
+        tn === $.BGSOUND ||
+        tn === $.LINK ||
+        tn === $.META ||
+        tn === $.NOFRAMES ||
+        tn === $.SCRIPT ||
+        tn === $.STYLE ||
+        tn === $.TEMPLATE ||
+        tn === $.TITLE
+    ) {
         p._err(token, ERR.abandonedHeadElementChild);
         p.openElements.push(p.headElement!, $.HEAD);
         startTagInHead(p, token);
