@@ -38,7 +38,7 @@ generateTestsForEachTreeAdapter('open-element-stack', (treeAdapter) => {
 
         stack.pop();
         assert.ok(!stack.current);
-        assert.strictEqual(stack.currentTagId, null);
+        assert.ok(!stack.currentTagId);
         assert.strictEqual(stack.stackTop, -1);
     });
 

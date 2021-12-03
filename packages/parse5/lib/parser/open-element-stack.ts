@@ -49,7 +49,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
     stackTop = -1;
     tmplCount = 0;
 
-    currentTagId: $ | null = null;
+    currentTagId = $.UNKNOWN;
 
     get currentTmplContentOrNode(): T['parentNode'] {
         return this._isInTemplate() ? this.treeAdapter.getTemplateContent(this.current) : this.current;
@@ -73,7 +73,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
 
     private _updateCurrentElement() {
         this.current = this.items[this.stackTop];
-        this.currentTagId = this.stackTop >= 0 ? this.tagIDs[this.stackTop] : null;
+        this.currentTagId = this.tagIDs[this.stackTop];
     }
 
     //Mutations
@@ -370,20 +370,19 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
 
     //Implied end tags
     generateImpliedEndTags() {
-        while (this.currentTagId !== null && IMPLICIT_END_TAG_REQUIRED.has(this.currentTagId)) {
+        while (IMPLICIT_END_TAG_REQUIRED.has(this.currentTagId)) {
             this.pop();
         }
     }
 
     generateImpliedEndTagsThoroughly() {
-        while (this.currentTagId !== null && IMPLICIT_END_TAG_REQUIRED_THOROUGHLY.has(this.currentTagId)) {
+        while (IMPLICIT_END_TAG_REQUIRED_THOROUGHLY.has(this.currentTagId)) {
             this.pop();
         }
     }
 
     generateImpliedEndTagsWithExclusion(exclusionTagName: string) {
         while (
-            this.currentTagId !== null &&
             this.treeAdapter.getTagName(this.current) !== exclusionTagName &&
             IMPLICIT_END_TAG_REQUIRED_THOROUGHLY.has(this.currentTagId)
         ) {

@@ -642,13 +642,10 @@ export class Parser<T extends TreeAdapterTypeMap> {
             token.type === TokenType.END_TAG &&
             (token.tagID === $.HTML || (token.tagID === $.BODY && this.openElements.hasInScope($.BODY)))
         ) {
-            for (let i = this.openElements.stackTop; i >= 0; i--) {
-                const element = this.openElements.items[i];
+            const idx = this.openElements.tagIDs.lastIndexOf(token.tagID, this.openElements.stackTop);
 
-                if (this.treeAdapter.getTagName(element) === token.tagName) {
-                    this._setEndLocation(element, token);
-                    break;
-                }
+            if (idx >= 0) {
+                this._setEndLocation(this.openElements.items[idx], token);
             }
         }
     }
@@ -687,7 +684,10 @@ export class Parser<T extends TreeAdapterTypeMap> {
         const ns = this.treeAdapter.getNamespaceURI(element);
         const attrs = this.treeAdapter.getAttrList(element);
 
-        return foreignContent.isIntegrationPoint(tn, ns, attrs, foreignNS);
+        // TODO Pass this
+        const id = getTagID(tn);
+
+        return foreignContent.isIntegrationPoint(id, ns, attrs, foreignNS);
     }
 
     //Active formatting elements reconstruction
@@ -801,10 +801,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     _shouldFosterParentOnInsertion() {
-        return (
-            this.fosterParentingEnabled &&
-            this._isElementCausesFosterParenting(this.openElements.tagIDs[this.openElements.stackTop])
-        );
+        return this.fosterParentingEnabled && this._isElementCausesFosterParenting(this.openElements.currentTagId);
     }
 
     _findFosterParentingLocation() {
@@ -1454,7 +1451,7 @@ function numberedHeaderStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>
         p._closePElement();
     }
 
-    if (p.openElements.currentTagId !== null && isNumberedHeader(p.openElements.currentTagId)) {
+    if (isNumberedHeader(p.openElements.currentTagId)) {
         p.openElements.pop();
     }
 
@@ -2133,7 +2130,7 @@ function modeInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
 }
 
 function characterInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken) {
-    if (p.openElements.currentTagId !== null && TABLE_STRUCTURE_TAGS.has(p.openElements.currentTagId)) {
+    if (TABLE_STRUCTURE_TAGS.has(p.openElements.currentTagId)) {
         p.pendingCharacterTokens = [];
         p.hasNonWhitespacePendingCharacterToken = false;
         p.originalInsertionMode = p.insertionMode;

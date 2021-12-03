@@ -2,7 +2,7 @@ import { Tokenizer, TokenizerMode } from 'parse5/lib/tokenizer/index.js';
 import { TokenType, Token, TagToken } from 'parse5/lib/common/token.js';
 import * as foreignContent from 'parse5/lib/common/foreign-content.js';
 import * as unicode from 'parse5/lib/common/unicode.js';
-import { TAG_NAMES as $, NAMESPACES as NS } from 'parse5/lib/common/html.js';
+import { TAG_ID as $, TAG_NAMES as TN, NAMESPACES as NS, getTagID } from 'parse5/lib/common/html.js';
 
 //ParserFeedbackSimulator
 //Simulates adjustment of the Tokenizer which performed by standard parser during tree construction.
@@ -59,7 +59,7 @@ export class ParserFeedbackSimulator {
     }
 
     //Token handlers
-    private _ensureTokenizerMode(tn: string): void {
+    private _ensureTokenizerMode(tn: $): void {
         if (tn === $.TEXTAREA || tn === $.TITLE) {
             this.tokenizer.state = TokenizerMode.RCDATA;
         } else if (tn === $.PLAINTEXT) {
@@ -79,7 +79,7 @@ export class ParserFeedbackSimulator {
     }
 
     private _handleStartTagToken(token: TagToken): void {
-        let tn = token.tagName;
+        let tn = token.tagID;
 
         if (tn === $.SVG) {
             this._enterNamespace(NS.SVG);
@@ -104,7 +104,7 @@ export class ParserFeedbackSimulator {
 
             foreignContent.adjustTokenXMLAttrs(token);
 
-            tn = token.tagName;
+            tn = token.tagID;
 
             if (!token.selfClosing && foreignContent.isIntegrationPoint(tn, currentNs, token.attrs)) {
                 this._enterNamespace(NS.HTML);
@@ -113,7 +113,8 @@ export class ParserFeedbackSimulator {
             if (tn === $.PRE || tn === $.TEXTAREA || tn === $.LISTING) {
                 this.skipNextNewLine = true;
             } else if (tn === $.IMAGE) {
-                token.tagName = $.IMG;
+                token.tagName = TN.IMG;
+                token.tagID = $.IMG;
             }
 
             this._ensureTokenizerMode(tn);
@@ -121,7 +122,7 @@ export class ParserFeedbackSimulator {
     }
 
     private _handleEndTagToken(token: TagToken): void {
-        let tn = token.tagName;
+        let tn = token.tagID;
 
         if (!this.inForeignContent) {
             const previousNs = this.namespaceStack[1];
@@ -130,7 +131,7 @@ export class ParserFeedbackSimulator {
                 const adjustedTagName = foreignContent.SVG_TAG_NAMES_ADJUSTMENT_MAP.get(token.tagName);
 
                 if (adjustedTagName) {
-                    tn = adjustedTagName;
+                    tn = getTagID(adjustedTagName);
                 }
             }
 
