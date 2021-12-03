@@ -64,19 +64,6 @@ enum InsertionMode {
     AFTER_AFTER_FRAMESET,
 }
 
-//Template insertion mode switch map
-const TEMPLATE_INSERTION_MODE_SWITCH_MAP = new Map<$, InsertionMode>([
-    [$.CAPTION, InsertionMode.IN_TABLE],
-    [$.COLGROUP, InsertionMode.IN_TABLE],
-    [$.TBODY, InsertionMode.IN_TABLE],
-    [$.TFOOT, InsertionMode.IN_TABLE],
-    [$.THEAD, InsertionMode.IN_TABLE],
-    [$.COL, InsertionMode.IN_COLUMN_GROUP],
-    [$.TR, InsertionMode.IN_TABLE_BODY],
-    [$.TD, InsertionMode.IN_ROW],
-    [$.TH, InsertionMode.IN_ROW],
-]);
-
 const BASE_LOC = {
     startLine: -1,
     startCol: -1,
@@ -86,7 +73,7 @@ const BASE_LOC = {
     endOffset: -1,
 };
 
-const TABLE_STRUCTURE_TAGS = new Set<$>([$.TABLE, $.TBODY, $.TFOOT, $.THEAD, $.TR]);
+const TABLE_STRUCTURE_TAGS = new Set([$.TABLE, $.TBODY, $.TFOOT, $.THEAD, $.TR]);
 
 export interface ParserOptions<T extends TreeAdapterTypeMap> {
     /**
@@ -331,13 +318,21 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
     //Text parsing
     private _setupTokenizerCDATAMode() {
-        const current = this._getAdjustedCurrentElement();
+        let current;
+        let currentTagId;
+
+        if (this.openElements.stackTop === 0 && this.fragmentContext) {
+            current = this.fragmentContext;
+            currentTagId = this.fragmentContextID;
+        } else {
+            ({ current, currentTagId } = this.openElements);
+        }
 
         this.tokenizer.allowCDATA =
             current &&
             current !== this.document &&
             this.treeAdapter.getNamespaceURI(current) !== NS.HTML &&
-            !this._isIntegrationPoint(current);
+            !this._isIntegrationPoint(currentTagId, current);
     }
 
     _switchToTextParsing(currentToken: TagToken, nextTokenizerState: typeof TokenizerMode[keyof typeof TokenizerMode]) {
@@ -546,9 +541,17 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
     //Token processing
     _shouldProcessTokenInForeignContent(token: Token) {
-        const current = this._getAdjustedCurrentElement();
+        let current;
+        let currentTagId;
 
-        if (!current || current === this.document) {
+        if (this.openElements.stackTop === 0 && this.fragmentContext) {
+            current = this.fragmentContext;
+            currentTagId = this.fragmentContextID;
+        } else {
+            ({ current, currentTagId } = this.openElements);
+        }
+
+        if (current === this.document) {
             return false;
         }
 
@@ -575,11 +578,14 @@ export class Parser<T extends TreeAdapterTypeMap> {
         const isMathMLTextStartTag =
             token.type === TokenType.START_TAG && token.tagID !== $.MGLYPH && token.tagID !== $.MALIGNMARK;
 
-        if ((isMathMLTextStartTag || isCharacterToken) && this._isIntegrationPoint(current, NS.MATHML)) {
+        if ((isMathMLTextStartTag || isCharacterToken) && this._isIntegrationPoint(currentTagId, current, NS.MATHML)) {
             return false;
         }
 
-        if ((token.type === TokenType.START_TAG || isCharacterToken) && this._isIntegrationPoint(current, NS.HTML)) {
+        if (
+            (token.type === TokenType.START_TAG || isCharacterToken) &&
+            this._isIntegrationPoint(currentTagId, current, NS.HTML)
+        ) {
             return false;
         }
 
@@ -679,15 +685,11 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Integration points
-    _isIntegrationPoint(element: T['element'], foreignNS?: NS): boolean {
-        const tn = this.treeAdapter.getTagName(element);
+    _isIntegrationPoint(tid: $, element: T['element'], foreignNS?: NS): boolean {
         const ns = this.treeAdapter.getNamespaceURI(element);
         const attrs = this.treeAdapter.getAttrList(element);
 
-        // TODO Pass this
-        const id = getTagID(tn);
-
-        return foreignContent.isIntegrationPoint(id, ns, attrs, foreignNS);
+        return foreignContent.isIntegrationPoint(tid, ns, attrs, foreignNS);
     }
 
     //Active formatting elements reconstruction
@@ -1494,27 +1496,27 @@ function listItemStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     for (let i = p.openElements.stackTop; i >= 0; i--) {
         const element = p.openElements.items[i];
         const elementTn = p.treeAdapter.getTagName(element);
-        let elementIid = p.openElements.tagIDs[i];
+        let elementId = p.openElements.tagIDs[i];
         let closeTn = null;
 
-        if (tn === $.LI && elementIid === $.LI) {
+        if (tn === $.LI && elementId === $.LI) {
             closeTn = TN.LI;
-            elementIid = $.LI;
-        } else if ((tn === $.DD || tn === $.DT) && (elementIid === $.DD || elementIid === $.DT)) {
+            elementId = $.LI;
+        } else if ((tn === $.DD || tn === $.DT) && (elementId === $.DD || elementId === $.DT)) {
             closeTn = elementTn;
         }
 
         if (closeTn) {
             p.openElements.generateImpliedEndTagsWithExclusion(closeTn);
-            p.openElements.popUntilTagNamePopped(elementIid);
+            p.openElements.popUntilTagNamePopped(elementId);
             break;
         }
 
         if (
-            elementIid !== $.ADDRESS &&
-            elementIid !== $.DIV &&
-            elementIid !== $.P &&
-            p._isSpecialElement(element, elementIid)
+            elementId !== $.ADDRESS &&
+            elementId !== $.DIV &&
+            elementId !== $.P &&
+            p._isSpecialElement(element, elementId)
         ) {
             break;
         }
@@ -2318,7 +2320,7 @@ function modeInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
     }
 }
 
-const TABLE_VOID_ELEMENTS = new Set<$>([$.CAPTION, $.COL, $.COLGROUP, $.TBODY, $.TD, $.TFOOT, $.TH, $.THEAD, $.TR]);
+const TABLE_VOID_ELEMENTS = new Set([$.CAPTION, $.COL, $.COLGROUP, $.TBODY, $.TD, $.TFOOT, $.TH, $.THEAD, $.TR]);
 
 function startTagInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
     const tn = token.tagID;
@@ -2794,30 +2796,52 @@ function modeInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
     }
 }
 
-const TEMPLATE_START_TAGS = new Set<$>([
-    $.BASE,
-    $.BASEFONT,
-    $.BGSOUND,
-    $.LINK,
-    $.META,
-    $.NOFRAMES,
-    $.SCRIPT,
-    $.STYLE,
-    $.TEMPLATE,
-    $.TITLE,
-]);
-
 function startTagInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
+    switch (token.tagID) {
+        // First, handle tags that can start without a mode change
+        case $.BASE:
+        case $.BASEFONT:
+        case $.BGSOUND:
+        case $.LINK:
+        case $.META:
+        case $.NOFRAMES:
+        case $.SCRIPT:
+        case $.STYLE:
+        case $.TEMPLATE:
+        case $.TITLE:
+            startTagInHead(p, token);
+            break;
 
-    if (TEMPLATE_START_TAGS.has(tn)) {
-        startTagInHead(p, token);
-    } else {
-        const newInsertionMode = TEMPLATE_INSERTION_MODE_SWITCH_MAP.get(tn) ?? InsertionMode.IN_BODY;
-
-        p.tmplInsertionModeStack[0] = newInsertionMode;
-        p.insertionMode = newInsertionMode;
-        p._processToken(token);
+        // Re-process the token in the appropriate mode
+        case $.CAPTION:
+        case $.COLGROUP:
+        case $.TBODY:
+        case $.TFOOT:
+        case $.THEAD:
+            p.tmplInsertionModeStack[0] = InsertionMode.IN_TABLE;
+            p.insertionMode = InsertionMode.IN_TABLE;
+            modeInTable(p, token);
+            break;
+        case $.COL:
+            p.tmplInsertionModeStack[0] = InsertionMode.IN_COLUMN_GROUP;
+            p.insertionMode = InsertionMode.IN_COLUMN_GROUP;
+            modeInColumnGroup(p, token);
+            break;
+        case $.TR:
+            p.tmplInsertionModeStack[0] = InsertionMode.IN_TABLE_BODY;
+            p.insertionMode = InsertionMode.IN_TABLE_BODY;
+            modeInTableBody(p, token);
+            break;
+        case $.TD:
+        case $.TH:
+            p.tmplInsertionModeStack[0] = InsertionMode.IN_ROW;
+            p.insertionMode = InsertionMode.IN_ROW;
+            modeInRow(p, token);
+            break;
+        default:
+            p.tmplInsertionModeStack[0] = InsertionMode.IN_BODY;
+            p.insertionMode = InsertionMode.IN_BODY;
+            modeInBody(p, token);
     }
 }
 
@@ -3026,7 +3050,7 @@ function startTagInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, to
     if (foreignContent.causesExit(token) && !p.fragmentContext) {
         while (
             p.treeAdapter.getNamespaceURI(p.openElements.current) !== NS.HTML &&
-            !p._isIntegrationPoint(p.openElements.current)
+            !p._isIntegrationPoint(p.openElements.currentTagId, p.openElements.current)
         ) {
             p.openElements.pop();
         }
