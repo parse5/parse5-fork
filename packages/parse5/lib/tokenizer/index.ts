@@ -20,6 +20,7 @@ import {
 } from '../common/token.js';
 import { htmlDecodeTree, BinTrieFlags, determineBranch } from 'entities/lib/decode.js';
 import { ERR, ParserErrorHandler } from '../common/error-codes.js';
+import { TAG_ID, getTagID } from '../common/html.js';
 
 //C1 Unicode control character reference replacements
 const C1_CONTROLS_REFERENCE_REPLACEMENTS = new Map([
@@ -346,6 +347,7 @@ export class Tokenizer {
         this.currentToken = {
             type: TokenType.START_TAG,
             tagName: '',
+            tagID: TAG_ID.UNKNOWN,
             selfClosing: false,
             ackSelfClosing: false,
             attrs: [],
@@ -357,6 +359,7 @@ export class Tokenizer {
         this.currentToken = {
             type: TokenType.END_TAG,
             tagName: '',
+            tagID: TAG_ID.UNKNOWN,
             selfClosing: false,
             ackSelfClosing: false,
             attrs: [],
@@ -452,8 +455,11 @@ export class Tokenizer {
 
         //NOTE: store emited start tag's tagName to determine is the following end tag token is appropriate.
         if (ct.type === TokenType.START_TAG) {
+            ct.tagID = getTagID(ct.tagName);
             this.lastStartTagName = ct.tagName;
         } else if (ct.type === TokenType.END_TAG) {
+            ct.tagID = getTagID(ct.tagName);
+
             if (ct.attrs.length > 0) {
                 this._err(ERR.endTagWithAttributes);
             }
