@@ -24,33 +24,33 @@ import { TAG_ID, getTagID } from '../common/html.js';
 
 //C1 Unicode control character reference replacements
 const C1_CONTROLS_REFERENCE_REPLACEMENTS = new Map([
-    [0x80, 0x20ac],
-    [0x82, 0x201a],
-    [0x83, 0x0192],
-    [0x84, 0x201e],
-    [0x85, 0x2026],
-    [0x86, 0x2020],
-    [0x87, 0x2021],
-    [0x88, 0x02c6],
-    [0x89, 0x2030],
-    [0x8a, 0x0160],
-    [0x8b, 0x2039],
-    [0x8c, 0x0152],
-    [0x8e, 0x017d],
-    [0x91, 0x2018],
-    [0x92, 0x2019],
-    [0x93, 0x201c],
-    [0x94, 0x201d],
-    [0x95, 0x2022],
-    [0x96, 0x2013],
-    [0x97, 0x2014],
-    [0x98, 0x02dc],
-    [0x99, 0x2122],
-    [0x9a, 0x0161],
-    [0x9b, 0x203a],
-    [0x9c, 0x0153],
-    [0x9e, 0x017e],
-    [0x9f, 0x0178],
+    [0x80, 0x20_ac],
+    [0x82, 0x20_1a],
+    [0x83, 0x01_92],
+    [0x84, 0x20_1e],
+    [0x85, 0x20_26],
+    [0x86, 0x20_20],
+    [0x87, 0x20_21],
+    [0x88, 0x02_c6],
+    [0x89, 0x20_30],
+    [0x8a, 0x01_60],
+    [0x8b, 0x20_39],
+    [0x8c, 0x01_52],
+    [0x8e, 0x01_7d],
+    [0x91, 0x20_18],
+    [0x92, 0x20_19],
+    [0x93, 0x20_1c],
+    [0x94, 0x20_1d],
+    [0x95, 0x20_22],
+    [0x96, 0x20_13],
+    [0x97, 0x20_14],
+    [0x98, 0x02_dc],
+    [0x99, 0x21_22],
+    [0x9a, 0x01_61],
+    [0x9b, 0x20_3a],
+    [0x9c, 0x01_53],
+    [0x9e, 0x01_7e],
+    [0x9f, 0x01_78],
 ]);
 
 //States
@@ -152,9 +152,6 @@ export const TokenizerMode = {
 //OPTIMIZATION: these utility functions should not be moved out of this module. V8 Crankshaft will not inline
 //this functions if they will be situated in another module due to context switch.
 //Always perform inlining check before modifying this functions ('node --trace-inlining').
-function isWhitespace(cp: number): boolean {
-    return cp === $.SPACE || cp === $.LINE_FEED || cp === $.TABULATION || cp === $.FORM_FEED;
-}
 
 function isAsciiDigit(cp: number): boolean {
     return cp >= $.DIGIT_0 && cp <= $.DIGIT_9;
@@ -189,7 +186,7 @@ function isAsciiHexDigit(cp: number): boolean {
 }
 
 function toAsciiLowerCodePoint(cp: number): number {
-    return cp + 0x0020;
+    return cp + 0x00_20;
 }
 
 function toAsciiLowerChar(cp: number): string {
@@ -257,7 +254,7 @@ export class Tokenizer {
 
     //API
     public getNextToken(): Token {
-        while (!this.tokenQueue.length && this.active) {
+        while (this.tokenQueue.length === 0 && this.active) {
             this.consumedAfterSnapshot = 0;
 
             const cp = this._consume();
@@ -415,7 +412,7 @@ export class Tokenizer {
         this.currentAttrLocation = this._getCurrentLocation();
     }
 
-    private _leaveAttrName(toState: State): void {
+    private _leaveAttrName(): void {
         const token = this.currentToken as TagToken;
 
         if (getTokenAttr(token, this.currentAttr.name) === null) {
@@ -426,23 +423,19 @@ export class Tokenizer {
                 attrLocations[this.currentAttr.name] = this.currentAttrLocation!;
 
                 // Set end location
-                this._leaveAttrValue(toState);
+                this._leaveAttrValue();
             }
         } else {
             this._err(ERR.duplicateAttribute);
         }
-
-        this.state = toState;
     }
 
-    private _leaveAttrValue(toState: State): void {
+    private _leaveAttrValue(): void {
         if (this.currentAttrLocation) {
             this.currentAttrLocation.endLine = this.preprocessor.line;
             this.currentAttrLocation.endCol = this.preprocessor.col;
             this.currentAttrLocation.endOffset = this.preprocessor.offset;
         }
-
-        this.state = toState;
     }
 
     //Token emission
@@ -502,7 +495,7 @@ export class Tokenizer {
 
     //OPTIMIZATION: specification uses only one type of character tokens (one token per character).
     //This causes a huge memory overhead and a lot of unnecessary parser loops. parse5 uses 3 groups of characters.
-    //If we have a sequence of characters that belong to the same group, parser can process it
+    //If we have a sequence of characters that belong to the same group, the parser can process it
     //as a single solid character token.
     //So, there are 3 types of character tokens in parse5:
     //1)TokenType.NULL_CHARACTER - \u0000-character sequences (e.g. '\u0000\u0000\u0000')
@@ -523,7 +516,7 @@ export class Tokenizer {
     private _emitCodePoint(cp: number): void {
         let type = TokenType.CHARACTER;
 
-        if (isWhitespace(cp)) {
+        if (cp === $.SPACE || cp === $.LINE_FEED || cp === $.TABULATION || cp === $.FORM_FEED) {
             type = TokenType.WHITESPACE_CHARACTER;
         } else if (cp === $.NULL) {
             type = TokenType.NULL_CHARACTER;
@@ -610,168 +603,330 @@ export class Tokenizer {
 
     // Calling states this way turns out to be much faster than any other approach.
     private _callState(cp: number) {
-        if (this.state === State.DATA) {
-            this._stateData(cp);
-        } else if (this.state === State.RCDATA) {
-            this._stateRcdata(cp);
-        } else if (this.state === State.RAWTEXT) {
-            this._stateRawtext(cp);
-        } else if (this.state === State.SCRIPT_DATA) {
-            this._stateScriptData(cp);
-        } else if (this.state === State.PLAINTEXT) {
-            this._statePlaintext(cp);
-        } else if (this.state === State.TAG_OPEN) {
-            this._stateTagOpen(cp);
-        } else if (this.state === State.END_TAG_OPEN) {
-            this._stateEndTagOpen(cp);
-        } else if (this.state === State.TAG_NAME) {
-            this._stateTagName(cp);
-        } else if (this.state === State.RCDATA_LESS_THAN_SIGN) {
-            this._stateRcdataLessThanSign(cp);
-        } else if (this.state === State.RCDATA_END_TAG_OPEN) {
-            this._stateRcdataEndTagOpen(cp);
-        } else if (this.state === State.RCDATA_END_TAG_NAME) {
-            this._stateRcdataEndTagName(cp);
-        } else if (this.state === State.RAWTEXT_LESS_THAN_SIGN) {
-            this._stateRawtextLessThanSign(cp);
-        } else if (this.state === State.RAWTEXT_END_TAG_OPEN) {
-            this._stateRawtextEndTagOpen(cp);
-        } else if (this.state === State.RAWTEXT_END_TAG_NAME) {
-            this._stateRawtextEndTagName(cp);
-        } else if (this.state === State.SCRIPT_DATA_LESS_THAN_SIGN) {
-            this._stateScriptDataLessThanSign(cp);
-        } else if (this.state === State.SCRIPT_DATA_END_TAG_OPEN) {
-            this._stateScriptDataEndTagOpen(cp);
-        } else if (this.state === State.SCRIPT_DATA_END_TAG_NAME) {
-            this._stateScriptDataEndTagName(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPE_START) {
-            this._stateScriptDataEscapeStart(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPE_START_DASH) {
-            this._stateScriptDataEscapeStartDash(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPED) {
-            this._stateScriptDataEscaped(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPED_DASH) {
-            this._stateScriptDataEscapedDash(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPED_DASH_DASH) {
-            this._stateScriptDataEscapedDashDash(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN) {
-            this._stateScriptDataEscapedLessThanSign(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPED_END_TAG_OPEN) {
-            this._stateScriptDataEscapedEndTagOpen(cp);
-        } else if (this.state === State.SCRIPT_DATA_ESCAPED_END_TAG_NAME) {
-            this._stateScriptDataEscapedEndTagName(cp);
-        } else if (this.state === State.SCRIPT_DATA_DOUBLE_ESCAPE_START) {
-            this._stateScriptDataDoubleEscapeStart(cp);
-        } else if (this.state === State.SCRIPT_DATA_DOUBLE_ESCAPED) {
-            this._stateScriptDataDoubleEscaped(cp);
-        } else if (this.state === State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH) {
-            this._stateScriptDataDoubleEscapedDash(cp);
-        } else if (this.state === State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH) {
-            this._stateScriptDataDoubleEscapedDashDash(cp);
-        } else if (this.state === State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN) {
-            this._stateScriptDataDoubleEscapedLessThanSign(cp);
-        } else if (this.state === State.SCRIPT_DATA_DOUBLE_ESCAPE_END) {
-            this._stateScriptDataDoubleEscapeEnd(cp);
-        } else if (this.state === State.BEFORE_ATTRIBUTE_NAME) {
-            this._stateBeforeAttributeName(cp);
-        } else if (this.state === State.ATTRIBUTE_NAME) {
-            this._stateAttributeName(cp);
-        } else if (this.state === State.AFTER_ATTRIBUTE_NAME) {
-            this._stateAfterAttributeName(cp);
-        } else if (this.state === State.BEFORE_ATTRIBUTE_VALUE) {
-            this._stateBeforeAttributeValue(cp);
-        } else if (this.state === State.ATTRIBUTE_VALUE_DOUBLE_QUOTED) {
-            this._stateAttributeValueDoubleQuoted(cp);
-        } else if (this.state === State.ATTRIBUTE_VALUE_SINGLE_QUOTED) {
-            this._stateAttributeValueSingleQuoted(cp);
-        } else if (this.state === State.ATTRIBUTE_VALUE_UNQUOTED) {
-            this._stateAttributeValueUnquoted(cp);
-        } else if (this.state === State.AFTER_ATTRIBUTE_VALUE_QUOTED) {
-            this._stateAfterAttributeValueQuoted(cp);
-        } else if (this.state === State.SELF_CLOSING_START_TAG) {
-            this._stateSelfClosingStartTag(cp);
-        } else if (this.state === State.BOGUS_COMMENT) {
-            this._stateBogusComment(cp);
-        } else if (this.state === State.MARKUP_DECLARATION_OPEN) {
-            this._stateMarkupDeclarationOpen(cp);
-        } else if (this.state === State.COMMENT_START) {
-            this._stateCommentStart(cp);
-        } else if (this.state === State.COMMENT_START_DASH) {
-            this._stateCommentStartDash(cp);
-        } else if (this.state === State.COMMENT) {
-            this._stateComment(cp);
-        } else if (this.state === State.COMMENT_LESS_THAN_SIGN) {
-            this._stateCommentLessThanSign(cp);
-        } else if (this.state === State.COMMENT_LESS_THAN_SIGN_BANG) {
-            this._stateCommentLessThanSignBang(cp);
-        } else if (this.state === State.COMMENT_LESS_THAN_SIGN_BANG_DASH) {
-            this._stateCommentLessThanSignBangDash(cp);
-        } else if (this.state === State.COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH) {
-            this._stateCommentLessThanSignBangDashDash(cp);
-        } else if (this.state === State.COMMENT_END_DASH) {
-            this._stateCommentEndDash(cp);
-        } else if (this.state === State.COMMENT_END) {
-            this._stateCommentEnd(cp);
-        } else if (this.state === State.COMMENT_END_BANG) {
-            this._stateCommentEndBang(cp);
-        } else if (this.state === State.DOCTYPE) {
-            this._stateDoctype(cp);
-        } else if (this.state === State.BEFORE_DOCTYPE_NAME) {
-            this._stateBeforeDoctypeName(cp);
-        } else if (this.state === State.DOCTYPE_NAME) {
-            this._stateDoctypeName(cp);
-        } else if (this.state === State.AFTER_DOCTYPE_NAME) {
-            this._stateAfterDoctypeName(cp);
-        } else if (this.state === State.AFTER_DOCTYPE_PUBLIC_KEYWORD) {
-            this._stateAfterDoctypePublicKeyword(cp);
-        } else if (this.state === State.BEFORE_DOCTYPE_PUBLIC_IDENTIFIER) {
-            this._stateBeforeDoctypePublicIdentifier(cp);
-        } else if (this.state === State.DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED) {
-            this._stateDoctypePublicIdentifierDoubleQuoted(cp);
-        } else if (this.state === State.DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED) {
-            this._stateDoctypePublicIdentifierSingleQuoted(cp);
-        } else if (this.state === State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER) {
-            this._stateAfterDoctypePublicIdentifier(cp);
-        } else if (this.state === State.BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS) {
-            this._stateBetweenDoctypePublicAndSystemIdentifiers(cp);
-        } else if (this.state === State.AFTER_DOCTYPE_SYSTEM_KEYWORD) {
-            this._stateAfterDoctypeSystemKeyword(cp);
-        } else if (this.state === State.BEFORE_DOCTYPE_SYSTEM_IDENTIFIER) {
-            this._stateBeforeDoctypeSystemIdentifier(cp);
-        } else if (this.state === State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED) {
-            this._stateDoctypeSystemIdentifierDoubleQuoted(cp);
-        } else if (this.state === State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED) {
-            this._stateDoctypeSystemIdentifierSingleQuoted(cp);
-        } else if (this.state === State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER) {
-            this._stateAfterDoctypeSystemIdentifier(cp);
-        } else if (this.state === State.BOGUS_DOCTYPE) {
-            this._stateBogusDoctype(cp);
-        } else if (this.state === State.CDATA_SECTION) {
-            this._stateCdataSection(cp);
-        } else if (this.state === State.CDATA_SECTION_BRACKET) {
-            this._stateCdataSectionBracket(cp);
-        } else if (this.state === State.CDATA_SECTION_END) {
-            this._stateCdataSectionEnd(cp);
-        } else if (this.state === State.CHARACTER_REFERENCE) {
-            this._stateCharacterReference(cp);
-        } else if (this.state === State.NAMED_CHARACTER_REFERENCE) {
-            this._stateNamedCharacterReference(cp);
-        } else if (this.state === State.AMBIGUOUS_AMPERSAND) {
-            this._stateAmbiguousAmpersand(cp);
-        } else if (this.state === State.NUMERIC_CHARACTER_REFERENCE) {
-            this._stateNumericCharacterReference(cp);
-        } else if (this.state === State.HEXADEMICAL_CHARACTER_REFERENCE_START) {
-            this._stateHexademicalCharacterReferenceStart(cp);
-        } else if (this.state === State.DECIMAL_CHARACTER_REFERENCE_START) {
-            this._stateDecimalCharacterReferenceStart(cp);
-        } else if (this.state === State.HEXADEMICAL_CHARACTER_REFERENCE) {
-            this._stateHexademicalCharacterReference(cp);
-        } else if (this.state === State.DECIMAL_CHARACTER_REFERENCE) {
-            this._stateDecimalCharacterReference(cp);
-        } else if (this.state === State.NUMERIC_CHARACTER_REFERENCE_END) {
-            this._stateNumericCharacterReferenceEnd();
-        } else {
-            throw new Error('Unknown state');
+        switch (this.state) {
+            case State.DATA: {
+                this._stateData(cp);
+                break;
+            }
+            case State.RCDATA: {
+                this._stateRcdata(cp);
+                break;
+            }
+            case State.RAWTEXT: {
+                this._stateRawtext(cp);
+                break;
+            }
+            case State.SCRIPT_DATA: {
+                this._stateScriptData(cp);
+                break;
+            }
+            case State.PLAINTEXT: {
+                this._statePlaintext(cp);
+                break;
+            }
+            case State.TAG_OPEN: {
+                this._stateTagOpen(cp);
+                break;
+            }
+            case State.END_TAG_OPEN: {
+                this._stateEndTagOpen(cp);
+                break;
+            }
+            case State.TAG_NAME: {
+                this._stateTagName(cp);
+                break;
+            }
+            case State.RCDATA_LESS_THAN_SIGN: {
+                this._stateRcdataLessThanSign(cp);
+                break;
+            }
+            case State.RCDATA_END_TAG_OPEN: {
+                this._stateRcdataEndTagOpen(cp);
+                break;
+            }
+            case State.RCDATA_END_TAG_NAME: {
+                this._stateRcdataEndTagName(cp);
+                break;
+            }
+            case State.RAWTEXT_LESS_THAN_SIGN: {
+                this._stateRawtextLessThanSign(cp);
+                break;
+            }
+            case State.RAWTEXT_END_TAG_OPEN: {
+                this._stateRawtextEndTagOpen(cp);
+                break;
+            }
+            case State.RAWTEXT_END_TAG_NAME: {
+                this._stateRawtextEndTagName(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_LESS_THAN_SIGN: {
+                this._stateScriptDataLessThanSign(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_END_TAG_OPEN: {
+                this._stateScriptDataEndTagOpen(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_END_TAG_NAME: {
+                this._stateScriptDataEndTagName(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPE_START: {
+                this._stateScriptDataEscapeStart(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPE_START_DASH: {
+                this._stateScriptDataEscapeStartDash(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPED: {
+                this._stateScriptDataEscaped(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPED_DASH: {
+                this._stateScriptDataEscapedDash(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPED_DASH_DASH: {
+                this._stateScriptDataEscapedDashDash(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN: {
+                this._stateScriptDataEscapedLessThanSign(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPED_END_TAG_OPEN: {
+                this._stateScriptDataEscapedEndTagOpen(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_ESCAPED_END_TAG_NAME: {
+                this._stateScriptDataEscapedEndTagName(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_DOUBLE_ESCAPE_START: {
+                this._stateScriptDataDoubleEscapeStart(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_DOUBLE_ESCAPED: {
+                this._stateScriptDataDoubleEscaped(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH: {
+                this._stateScriptDataDoubleEscapedDash(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH: {
+                this._stateScriptDataDoubleEscapedDashDash(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN: {
+                this._stateScriptDataDoubleEscapedLessThanSign(cp);
+                break;
+            }
+            case State.SCRIPT_DATA_DOUBLE_ESCAPE_END: {
+                this._stateScriptDataDoubleEscapeEnd(cp);
+                break;
+            }
+            case State.BEFORE_ATTRIBUTE_NAME: {
+                this._stateBeforeAttributeName(cp);
+                break;
+            }
+            case State.ATTRIBUTE_NAME: {
+                this._stateAttributeName(cp);
+                break;
+            }
+            case State.AFTER_ATTRIBUTE_NAME: {
+                this._stateAfterAttributeName(cp);
+                break;
+            }
+            case State.BEFORE_ATTRIBUTE_VALUE: {
+                this._stateBeforeAttributeValue(cp);
+                break;
+            }
+            case State.ATTRIBUTE_VALUE_DOUBLE_QUOTED: {
+                this._stateAttributeValueDoubleQuoted(cp);
+                break;
+            }
+            case State.ATTRIBUTE_VALUE_SINGLE_QUOTED: {
+                this._stateAttributeValueSingleQuoted(cp);
+                break;
+            }
+            case State.ATTRIBUTE_VALUE_UNQUOTED: {
+                this._stateAttributeValueUnquoted(cp);
+                break;
+            }
+            case State.AFTER_ATTRIBUTE_VALUE_QUOTED: {
+                this._stateAfterAttributeValueQuoted(cp);
+                break;
+            }
+            case State.SELF_CLOSING_START_TAG: {
+                this._stateSelfClosingStartTag(cp);
+                break;
+            }
+            case State.BOGUS_COMMENT: {
+                this._stateBogusComment(cp);
+                break;
+            }
+            case State.MARKUP_DECLARATION_OPEN: {
+                this._stateMarkupDeclarationOpen(cp);
+                break;
+            }
+            case State.COMMENT_START: {
+                this._stateCommentStart(cp);
+                break;
+            }
+            case State.COMMENT_START_DASH: {
+                this._stateCommentStartDash(cp);
+                break;
+            }
+            case State.COMMENT: {
+                this._stateComment(cp);
+                break;
+            }
+            case State.COMMENT_LESS_THAN_SIGN: {
+                this._stateCommentLessThanSign(cp);
+                break;
+            }
+            case State.COMMENT_LESS_THAN_SIGN_BANG: {
+                this._stateCommentLessThanSignBang(cp);
+                break;
+            }
+            case State.COMMENT_LESS_THAN_SIGN_BANG_DASH: {
+                this._stateCommentLessThanSignBangDash(cp);
+                break;
+            }
+            case State.COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH: {
+                this._stateCommentLessThanSignBangDashDash(cp);
+                break;
+            }
+            case State.COMMENT_END_DASH: {
+                this._stateCommentEndDash(cp);
+                break;
+            }
+            case State.COMMENT_END: {
+                this._stateCommentEnd(cp);
+                break;
+            }
+            case State.COMMENT_END_BANG: {
+                this._stateCommentEndBang(cp);
+                break;
+            }
+            case State.DOCTYPE: {
+                this._stateDoctype(cp);
+                break;
+            }
+            case State.BEFORE_DOCTYPE_NAME: {
+                this._stateBeforeDoctypeName(cp);
+                break;
+            }
+            case State.DOCTYPE_NAME: {
+                this._stateDoctypeName(cp);
+                break;
+            }
+            case State.AFTER_DOCTYPE_NAME: {
+                this._stateAfterDoctypeName(cp);
+                break;
+            }
+            case State.AFTER_DOCTYPE_PUBLIC_KEYWORD: {
+                this._stateAfterDoctypePublicKeyword(cp);
+                break;
+            }
+            case State.BEFORE_DOCTYPE_PUBLIC_IDENTIFIER: {
+                this._stateBeforeDoctypePublicIdentifier(cp);
+                break;
+            }
+            case State.DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED: {
+                this._stateDoctypePublicIdentifierDoubleQuoted(cp);
+                break;
+            }
+            case State.DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED: {
+                this._stateDoctypePublicIdentifierSingleQuoted(cp);
+                break;
+            }
+            case State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER: {
+                this._stateAfterDoctypePublicIdentifier(cp);
+                break;
+            }
+            case State.BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS: {
+                this._stateBetweenDoctypePublicAndSystemIdentifiers(cp);
+                break;
+            }
+            case State.AFTER_DOCTYPE_SYSTEM_KEYWORD: {
+                this._stateAfterDoctypeSystemKeyword(cp);
+                break;
+            }
+            case State.BEFORE_DOCTYPE_SYSTEM_IDENTIFIER: {
+                this._stateBeforeDoctypeSystemIdentifier(cp);
+                break;
+            }
+            case State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED: {
+                this._stateDoctypeSystemIdentifierDoubleQuoted(cp);
+                break;
+            }
+            case State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED: {
+                this._stateDoctypeSystemIdentifierSingleQuoted(cp);
+                break;
+            }
+            case State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER: {
+                this._stateAfterDoctypeSystemIdentifier(cp);
+                break;
+            }
+            case State.BOGUS_DOCTYPE: {
+                this._stateBogusDoctype(cp);
+                break;
+            }
+            case State.CDATA_SECTION: {
+                this._stateCdataSection(cp);
+                break;
+            }
+            case State.CDATA_SECTION_BRACKET: {
+                this._stateCdataSectionBracket(cp);
+                break;
+            }
+            case State.CDATA_SECTION_END: {
+                this._stateCdataSectionEnd(cp);
+                break;
+            }
+            case State.CHARACTER_REFERENCE: {
+                this._stateCharacterReference(cp);
+                break;
+            }
+            case State.NAMED_CHARACTER_REFERENCE: {
+                this._stateNamedCharacterReference(cp);
+                break;
+            }
+            case State.AMBIGUOUS_AMPERSAND: {
+                this._stateAmbiguousAmpersand(cp);
+                break;
+            }
+            case State.NUMERIC_CHARACTER_REFERENCE: {
+                this._stateNumericCharacterReference(cp);
+                break;
+            }
+            case State.HEXADEMICAL_CHARACTER_REFERENCE_START: {
+                this._stateHexademicalCharacterReferenceStart(cp);
+                break;
+            }
+            case State.DECIMAL_CHARACTER_REFERENCE_START: {
+                this._stateDecimalCharacterReferenceStart(cp);
+                break;
+            }
+            case State.HEXADEMICAL_CHARACTER_REFERENCE: {
+                this._stateHexademicalCharacterReference(cp);
+                break;
+            }
+            case State.DECIMAL_CHARACTER_REFERENCE: {
+                this._stateDecimalCharacterReference(cp);
+                break;
+            }
+            case State.NUMERIC_CHARACTER_REFERENCE_END: {
+                this._stateNumericCharacterReferenceEnd();
+                break;
+            }
+            default: {
+                throw new Error('Unknown state');
+            }
         }
     }
 
@@ -783,18 +938,28 @@ export class Tokenizer {
         this.preprocessor.dropParsedChunk();
         this.ctLoc = this._getCurrentLocation();
 
-        if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.TAG_OPEN;
-        } else if (cp === $.AMPERSAND) {
-            this.returnState = State.DATA;
-            this.state = State.CHARACTER_REFERENCE;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this._emitCodePoint(cp);
-        } else if (cp === $.EOF) {
-            this._emitEOFToken();
-        } else {
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.LESS_THAN_SIGN: {
+                this.state = State.TAG_OPEN;
+                break;
+            }
+            case $.AMPERSAND: {
+                this.returnState = State.DATA;
+                this.state = State.CHARACTER_REFERENCE;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this._emitCodePoint(cp);
+                break;
+            }
+            case $.EOF: {
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._emitCodePoint(cp);
+            }
         }
     }
 
@@ -804,18 +969,28 @@ export class Tokenizer {
         this.preprocessor.dropParsedChunk();
         this.ctLoc = this._getCurrentLocation();
 
-        if (cp === $.AMPERSAND) {
-            this.returnState = State.RCDATA;
-            this.state = State.CHARACTER_REFERENCE;
-        } else if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.RCDATA_LESS_THAN_SIGN;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._emitEOFToken();
-        } else {
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.AMPERSAND: {
+                this.returnState = State.RCDATA;
+                this.state = State.CHARACTER_REFERENCE;
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                this.state = State.RCDATA_LESS_THAN_SIGN;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._emitCodePoint(cp);
+            }
         }
     }
 
@@ -825,15 +1000,23 @@ export class Tokenizer {
         this.preprocessor.dropParsedChunk();
         this.ctLoc = this._getCurrentLocation();
 
-        if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.RAWTEXT_LESS_THAN_SIGN;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._emitEOFToken();
-        } else {
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.LESS_THAN_SIGN: {
+                this.state = State.RAWTEXT_LESS_THAN_SIGN;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._emitCodePoint(cp);
+            }
         }
     }
 
@@ -843,15 +1026,23 @@ export class Tokenizer {
         this.preprocessor.dropParsedChunk();
         this.ctLoc = this._getCurrentLocation();
 
-        if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA_LESS_THAN_SIGN;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._emitEOFToken();
-        } else {
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.LESS_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA_LESS_THAN_SIGN;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._emitCodePoint(cp);
+            }
         }
     }
 
@@ -874,29 +1065,40 @@ export class Tokenizer {
     // Tag open state
     //------------------------------------------------------------------
     private _stateTagOpen(cp: number) {
-        if (cp === $.EXCLAMATION_MARK) {
-            this.state = State.MARKUP_DECLARATION_OPEN;
-        } else if (cp === $.SOLIDUS) {
-            this.state = State.END_TAG_OPEN;
-        } else if (isAsciiLetter(cp)) {
+        if (isAsciiLetter(cp)) {
             this._createStartTagToken();
             this.state = State.TAG_NAME;
             this._stateTagName(cp);
-        } else if (cp === $.QUESTION_MARK) {
-            this._err(ERR.unexpectedQuestionMarkInsteadOfTagName);
-            this._createCommentToken();
-            this.state = State.BOGUS_COMMENT;
-            this._stateBogusComment(cp);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofBeforeTagName);
-            this._emitChars('<');
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.invalidFirstCharacterOfTagName);
-            this._emitChars('<');
-            this.state = State.DATA;
-            this._stateData(cp);
-        }
+        } else
+            switch (cp) {
+                case $.EXCLAMATION_MARK: {
+                    this.state = State.MARKUP_DECLARATION_OPEN;
+                    break;
+                }
+                case $.SOLIDUS: {
+                    this.state = State.END_TAG_OPEN;
+                    break;
+                }
+                case $.QUESTION_MARK: {
+                    this._err(ERR.unexpectedQuestionMarkInsteadOfTagName);
+                    this._createCommentToken();
+                    this.state = State.BOGUS_COMMENT;
+                    this._stateBogusComment(cp);
+                    break;
+                }
+                case $.EOF: {
+                    this._err(ERR.eofBeforeTagName);
+                    this._emitChars('<');
+                    this._emitEOFToken();
+                    break;
+                }
+                default: {
+                    this._err(ERR.invalidFirstCharacterOfTagName);
+                    this._emitChars('<');
+                    this.state = State.DATA;
+                    this._stateData(cp);
+                }
+            }
     }
 
     // End tag open state
@@ -926,23 +1128,36 @@ export class Tokenizer {
     private _stateTagName(cp: number) {
         const token = this.currentToken as TagToken;
 
-        if (isWhitespace(cp)) {
-            this.state = State.BEFORE_ATTRIBUTE_NAME;
-        } else if (cp === $.SOLIDUS) {
-            this.state = State.SELF_CLOSING_START_TAG;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (isAsciiUpper(cp)) {
-            token.tagName += toAsciiLowerChar(cp);
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.tagName += REPLACEMENT_CHARACTER;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInTag);
-            this._emitEOFToken();
-        } else {
-            token.tagName += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this.state = State.BEFORE_ATTRIBUTE_NAME;
+                break;
+            }
+            case $.SOLIDUS: {
+                this.state = State.SELF_CLOSING_START_TAG;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.tagName += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInTag);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.tagName += isAsciiUpper(cp) ? toAsciiLowerChar(cp) : String.fromCodePoint(cp);
+            }
         }
     }
 
@@ -986,20 +1201,23 @@ export class Tokenizer {
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === token.tagName) {
-                if (isWhitespace(cp)) {
-                    this.state = State.BEFORE_ATTRIBUTE_NAME;
-                    return;
-                }
-
-                if (cp === $.SOLIDUS) {
-                    this.state = State.SELF_CLOSING_START_TAG;
-                    return;
-                }
-
-                if (cp === $.GREATER_THAN_SIGN) {
-                    this.state = State.DATA;
-                    this._emitCurrentToken();
-                    return;
+                switch (cp) {
+                    case $.SPACE:
+                    case $.LINE_FEED:
+                    case $.TABULATION:
+                    case $.FORM_FEED: {
+                        this.state = State.BEFORE_ATTRIBUTE_NAME;
+                        return;
+                    }
+                    case $.SOLIDUS: {
+                        this.state = State.SELF_CLOSING_START_TAG;
+                        return;
+                    }
+                    case $.GREATER_THAN_SIGN: {
+                        this.state = State.DATA;
+                        this._emitCurrentToken();
+                        return;
+                    }
                 }
             }
 
@@ -1050,20 +1268,23 @@ export class Tokenizer {
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === token.tagName) {
-                if (isWhitespace(cp)) {
-                    this.state = State.BEFORE_ATTRIBUTE_NAME;
-                    return;
-                }
-
-                if (cp === $.SOLIDUS) {
-                    this.state = State.SELF_CLOSING_START_TAG;
-                    return;
-                }
-
-                if (cp === $.GREATER_THAN_SIGN) {
-                    this._emitCurrentToken();
-                    this.state = State.DATA;
-                    return;
+                switch (cp) {
+                    case $.SPACE:
+                    case $.LINE_FEED:
+                    case $.TABULATION:
+                    case $.FORM_FEED: {
+                        this.state = State.BEFORE_ATTRIBUTE_NAME;
+                        return;
+                    }
+                    case $.SOLIDUS: {
+                        this.state = State.SELF_CLOSING_START_TAG;
+                        return;
+                    }
+                    case $.GREATER_THAN_SIGN: {
+                        this._emitCurrentToken();
+                        this.state = State.DATA;
+                        return;
+                    }
                 }
             }
 
@@ -1117,16 +1338,23 @@ export class Tokenizer {
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === token.tagName) {
-                if (isWhitespace(cp)) {
-                    this.state = State.BEFORE_ATTRIBUTE_NAME;
-                    return;
-                } else if (cp === $.SOLIDUS) {
-                    this.state = State.SELF_CLOSING_START_TAG;
-                    return;
-                } else if (cp === $.GREATER_THAN_SIGN) {
-                    this._emitCurrentToken();
-                    this.state = State.DATA;
-                    return;
+                switch (cp) {
+                    case $.SPACE:
+                    case $.LINE_FEED:
+                    case $.TABULATION:
+                    case $.FORM_FEED: {
+                        this.state = State.BEFORE_ATTRIBUTE_NAME;
+                        return;
+                    }
+                    case $.SOLIDUS: {
+                        this.state = State.SELF_CLOSING_START_TAG;
+                        return;
+                    }
+                    case $.GREATER_THAN_SIGN: {
+                        this._emitCurrentToken();
+                        this.state = State.DATA;
+                        return;
+                    }
                 }
             }
 
@@ -1164,63 +1392,95 @@ export class Tokenizer {
     // Script data escaped state
     //------------------------------------------------------------------
     private _stateScriptDataEscaped(cp: number) {
-        if (cp === $.HYPHEN_MINUS) {
-            this.state = State.SCRIPT_DATA_ESCAPED_DASH;
-            this._emitChars('-');
-        } else if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInScriptHtmlCommentLikeText);
-            this._emitEOFToken();
-        } else {
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this.state = State.SCRIPT_DATA_ESCAPED_DASH;
+                this._emitChars('-');
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInScriptHtmlCommentLikeText);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._emitCodePoint(cp);
+            }
         }
     }
 
     // Script data escaped dash state
     //------------------------------------------------------------------
     private _stateScriptDataEscapedDash(cp: number) {
-        if (cp === $.HYPHEN_MINUS) {
-            this.state = State.SCRIPT_DATA_ESCAPED_DASH_DASH;
-            this._emitChars('-');
-        } else if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.state = State.SCRIPT_DATA_ESCAPED;
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInScriptHtmlCommentLikeText);
-            this._emitEOFToken();
-        } else {
-            this.state = State.SCRIPT_DATA_ESCAPED;
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this.state = State.SCRIPT_DATA_ESCAPED_DASH_DASH;
+                this._emitChars('-');
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.state = State.SCRIPT_DATA_ESCAPED;
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInScriptHtmlCommentLikeText);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this.state = State.SCRIPT_DATA_ESCAPED;
+                this._emitCodePoint(cp);
+            }
         }
     }
 
     // Script data escaped dash dash state
     //------------------------------------------------------------------
     private _stateScriptDataEscapedDashDash(cp: number) {
-        if (cp === $.HYPHEN_MINUS) {
-            this._emitChars('-');
-        } else if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA;
-            this._emitChars('>');
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.state = State.SCRIPT_DATA_ESCAPED;
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInScriptHtmlCommentLikeText);
-            this._emitEOFToken();
-        } else {
-            this.state = State.SCRIPT_DATA_ESCAPED;
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this._emitChars('-');
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA;
+                this._emitChars('>');
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.state = State.SCRIPT_DATA_ESCAPED;
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInScriptHtmlCommentLikeText);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this.state = State.SCRIPT_DATA_ESCAPED;
+                this._emitCodePoint(cp);
+            }
         }
     }
 
@@ -1269,20 +1529,23 @@ export class Tokenizer {
             this.tempBuff.push(cp);
         } else {
             if (this.lastStartTagName === token.tagName) {
-                if (isWhitespace(cp)) {
-                    this.state = State.BEFORE_ATTRIBUTE_NAME;
-                    return;
-                }
-
-                if (cp === $.SOLIDUS) {
-                    this.state = State.SELF_CLOSING_START_TAG;
-                    return;
-                }
-
-                if (cp === $.GREATER_THAN_SIGN) {
-                    this._emitCurrentToken();
-                    this.state = State.DATA;
-                    return;
+                switch (cp) {
+                    case $.SPACE:
+                    case $.LINE_FEED:
+                    case $.TABULATION:
+                    case $.FORM_FEED: {
+                        this.state = State.BEFORE_ATTRIBUTE_NAME;
+                        return;
+                    }
+                    case $.SOLIDUS: {
+                        this.state = State.SELF_CLOSING_START_TAG;
+                        return;
+                    }
+                    case $.GREATER_THAN_SIGN: {
+                        this._emitCurrentToken();
+                        this.state = State.DATA;
+                        return;
+                    }
                 }
             }
 
@@ -1296,7 +1559,14 @@ export class Tokenizer {
     // Script data double escape start state
     //------------------------------------------------------------------
     private _stateScriptDataDoubleEscapeStart(cp: number) {
-        if (isWhitespace(cp) || cp === $.SOLIDUS || cp === $.GREATER_THAN_SIGN) {
+        if (
+            cp === $.SPACE ||
+            cp === $.LINE_FEED ||
+            cp === $.TABULATION ||
+            cp === $.FORM_FEED ||
+            cp === $.SOLIDUS ||
+            cp === $.GREATER_THAN_SIGN
+        ) {
             this.state = this._isTempBufferEqualToScriptString()
                 ? State.SCRIPT_DATA_DOUBLE_ESCAPED
                 : State.SCRIPT_DATA_ESCAPED;
@@ -1316,66 +1586,98 @@ export class Tokenizer {
     // Script data double escaped state
     //------------------------------------------------------------------
     private _stateScriptDataDoubleEscaped(cp: number) {
-        if (cp === $.HYPHEN_MINUS) {
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH;
-            this._emitChars('-');
-        } else if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN;
-            this._emitChars('<');
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInScriptHtmlCommentLikeText);
-            this._emitEOFToken();
-        } else {
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH;
+                this._emitChars('-');
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN;
+                this._emitChars('<');
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInScriptHtmlCommentLikeText);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._emitCodePoint(cp);
+            }
         }
     }
 
     // Script data double escaped dash state
     //------------------------------------------------------------------
     private _stateScriptDataDoubleEscapedDash(cp: number) {
-        if (cp === $.HYPHEN_MINUS) {
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH;
-            this._emitChars('-');
-        } else if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN;
-            this._emitChars('<');
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInScriptHtmlCommentLikeText);
-            this._emitEOFToken();
-        } else {
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH;
+                this._emitChars('-');
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN;
+                this._emitChars('<');
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInScriptHtmlCommentLikeText);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
+                this._emitCodePoint(cp);
+            }
         }
     }
 
     // Script data double escaped dash dash state
     //------------------------------------------------------------------
     private _stateScriptDataDoubleEscapedDashDash(cp: number) {
-        if (cp === $.HYPHEN_MINUS) {
-            this._emitChars('-');
-        } else if (cp === $.LESS_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN;
-            this._emitChars('<');
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.SCRIPT_DATA;
-            this._emitChars('>');
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
-            this._emitChars(REPLACEMENT_CHARACTER);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInScriptHtmlCommentLikeText);
-            this._emitEOFToken();
-        } else {
-            this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
-            this._emitCodePoint(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this._emitChars('-');
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN;
+                this._emitChars('<');
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.SCRIPT_DATA;
+                this._emitChars('>');
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
+                this._emitChars(REPLACEMENT_CHARACTER);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInScriptHtmlCommentLikeText);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this.state = State.SCRIPT_DATA_DOUBLE_ESCAPED;
+                this._emitCodePoint(cp);
+            }
         }
     }
 
@@ -1395,7 +1697,14 @@ export class Tokenizer {
     // Script data double escape end state
     //------------------------------------------------------------------
     private _stateScriptDataDoubleEscapeEnd(cp: number) {
-        if (isWhitespace(cp) || cp === $.SOLIDUS || cp === $.GREATER_THAN_SIGN) {
+        if (
+            cp === $.SPACE ||
+            cp === $.LINE_FEED ||
+            cp === $.TABULATION ||
+            cp === $.FORM_FEED ||
+            cp === $.SOLIDUS ||
+            cp === $.GREATER_THAN_SIGN
+        ) {
             this.state = this._isTempBufferEqualToScriptString()
                 ? State.SCRIPT_DATA_ESCAPED
                 : State.SCRIPT_DATA_DOUBLE_ESCAPED;
@@ -1416,176 +1725,282 @@ export class Tokenizer {
     // Before attribute name state
     //------------------------------------------------------------------
     private _stateBeforeAttributeName(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
-        if (cp === $.SOLIDUS || cp === $.GREATER_THAN_SIGN || cp === $.EOF) {
-            this.state = State.AFTER_ATTRIBUTE_NAME;
-            this._stateAfterAttributeName(cp);
-        } else if (cp === $.EQUALS_SIGN) {
-            this._err(ERR.unexpectedEqualsSignBeforeAttributeName);
-            this._createAttr('=');
-            this.state = State.ATTRIBUTE_NAME;
-        } else {
-            this._createAttr('');
-            this.state = State.ATTRIBUTE_NAME;
-            this._stateAttributeName(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.SOLIDUS:
+            case $.GREATER_THAN_SIGN:
+            case $.EOF: {
+                this.state = State.AFTER_ATTRIBUTE_NAME;
+                this._stateAfterAttributeName(cp);
+                break;
+            }
+            case $.EQUALS_SIGN: {
+                this._err(ERR.unexpectedEqualsSignBeforeAttributeName);
+                this._createAttr('=');
+                this.state = State.ATTRIBUTE_NAME;
+                break;
+            }
+            default: {
+                this._createAttr('');
+                this.state = State.ATTRIBUTE_NAME;
+                this._stateAttributeName(cp);
+            }
         }
     }
 
     // Attribute name state
     //------------------------------------------------------------------
     private _stateAttributeName(cp: number) {
-        if (isWhitespace(cp) || cp === $.SOLIDUS || cp === $.GREATER_THAN_SIGN || cp === $.EOF) {
-            this._leaveAttrName(State.AFTER_ATTRIBUTE_NAME);
-            this._unconsume();
-        } else if (cp === $.EQUALS_SIGN) {
-            this._leaveAttrName(State.BEFORE_ATTRIBUTE_VALUE);
-        } else if (isAsciiUpper(cp)) {
-            this.currentAttr.name += toAsciiLowerChar(cp);
-        } else if (cp === $.QUOTATION_MARK || cp === $.APOSTROPHE || cp === $.LESS_THAN_SIGN) {
-            this._err(ERR.unexpectedCharacterInAttributeName);
-            this.currentAttr.name += String.fromCodePoint(cp);
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.name += REPLACEMENT_CHARACTER;
-        } else {
-            this.currentAttr.name += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED:
+            case $.SOLIDUS:
+            case $.GREATER_THAN_SIGN:
+            case $.EOF: {
+                this._leaveAttrName();
+                this.state = State.AFTER_ATTRIBUTE_NAME;
+                this._stateAfterAttributeName(cp);
+                break;
+            }
+            case $.EQUALS_SIGN: {
+                this._leaveAttrName();
+                this.state = State.BEFORE_ATTRIBUTE_VALUE;
+                break;
+            }
+            case $.QUOTATION_MARK:
+            case $.APOSTROPHE:
+            case $.LESS_THAN_SIGN: {
+                this._err(ERR.unexpectedCharacterInAttributeName);
+                this.currentAttr.name += String.fromCodePoint(cp);
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.currentAttr.name += REPLACEMENT_CHARACTER;
+                break;
+            }
+            default: {
+                this.currentAttr.name += isAsciiUpper(cp) ? toAsciiLowerChar(cp) : String.fromCodePoint(cp);
+            }
         }
     }
 
     // After attribute name state
     //------------------------------------------------------------------
     private _stateAfterAttributeName(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
-        if (cp === $.SOLIDUS) {
-            this.state = State.SELF_CLOSING_START_TAG;
-        } else if (cp === $.EQUALS_SIGN) {
-            this.state = State.BEFORE_ATTRIBUTE_VALUE;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInTag);
-            this._emitEOFToken();
-        } else {
-            this._createAttr('');
-            this.state = State.ATTRIBUTE_NAME;
-            this._stateAttributeName(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.SOLIDUS: {
+                this.state = State.SELF_CLOSING_START_TAG;
+                break;
+            }
+            case $.EQUALS_SIGN: {
+                this.state = State.BEFORE_ATTRIBUTE_VALUE;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInTag);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._createAttr('');
+                this.state = State.ATTRIBUTE_NAME;
+                this._stateAttributeName(cp);
+            }
         }
     }
 
     // Before attribute value state
     //------------------------------------------------------------------
     private _stateBeforeAttributeValue(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
-        if (cp === $.QUOTATION_MARK) {
-            this.state = State.ATTRIBUTE_VALUE_DOUBLE_QUOTED;
-        } else if (cp === $.APOSTROPHE) {
-            this.state = State.ATTRIBUTE_VALUE_SINGLE_QUOTED;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.missingAttributeValue);
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else {
-            this.state = State.ATTRIBUTE_VALUE_UNQUOTED;
-            this._stateAttributeValueUnquoted(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.QUOTATION_MARK: {
+                this.state = State.ATTRIBUTE_VALUE_DOUBLE_QUOTED;
+                break;
+            }
+            case $.APOSTROPHE: {
+                this.state = State.ATTRIBUTE_VALUE_SINGLE_QUOTED;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.missingAttributeValue);
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            default: {
+                this.state = State.ATTRIBUTE_VALUE_UNQUOTED;
+                this._stateAttributeValueUnquoted(cp);
+            }
         }
     }
 
     // Attribute value (double-quoted) state
     //------------------------------------------------------------------
     private _stateAttributeValueDoubleQuoted(cp: number) {
-        if (cp === $.QUOTATION_MARK) {
-            this.state = State.AFTER_ATTRIBUTE_VALUE_QUOTED;
-        } else if (cp === $.AMPERSAND) {
-            this.returnState = State.ATTRIBUTE_VALUE_DOUBLE_QUOTED;
-            this.state = State.CHARACTER_REFERENCE;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.value += REPLACEMENT_CHARACTER;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInTag);
-            this._emitEOFToken();
-        } else {
-            this.currentAttr.value += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.QUOTATION_MARK: {
+                this.state = State.AFTER_ATTRIBUTE_VALUE_QUOTED;
+                break;
+            }
+            case $.AMPERSAND: {
+                this.returnState = State.ATTRIBUTE_VALUE_DOUBLE_QUOTED;
+                this.state = State.CHARACTER_REFERENCE;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.currentAttr.value += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInTag);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this.currentAttr.value += String.fromCodePoint(cp);
+            }
         }
     }
 
     // Attribute value (single-quoted) state
     //------------------------------------------------------------------
     private _stateAttributeValueSingleQuoted(cp: number) {
-        if (cp === $.APOSTROPHE) {
-            this.state = State.AFTER_ATTRIBUTE_VALUE_QUOTED;
-        } else if (cp === $.AMPERSAND) {
-            this.returnState = State.ATTRIBUTE_VALUE_SINGLE_QUOTED;
-            this.state = State.CHARACTER_REFERENCE;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.value += REPLACEMENT_CHARACTER;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInTag);
-            this._emitEOFToken();
-        } else {
-            this.currentAttr.value += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.APOSTROPHE: {
+                this.state = State.AFTER_ATTRIBUTE_VALUE_QUOTED;
+                break;
+            }
+            case $.AMPERSAND: {
+                this.returnState = State.ATTRIBUTE_VALUE_SINGLE_QUOTED;
+                this.state = State.CHARACTER_REFERENCE;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.currentAttr.value += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInTag);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this.currentAttr.value += String.fromCodePoint(cp);
+            }
         }
     }
 
     // Attribute value (unquoted) state
     //------------------------------------------------------------------
     private _stateAttributeValueUnquoted(cp: number) {
-        if (isWhitespace(cp)) {
-            this._leaveAttrValue(State.BEFORE_ATTRIBUTE_NAME);
-        } else if (cp === $.AMPERSAND) {
-            this.returnState = State.ATTRIBUTE_VALUE_UNQUOTED;
-            this.state = State.CHARACTER_REFERENCE;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._leaveAttrValue(State.DATA);
-            this._emitCurrentToken();
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this.currentAttr.value += REPLACEMENT_CHARACTER;
-        } else if (
-            cp === $.QUOTATION_MARK ||
-            cp === $.APOSTROPHE ||
-            cp === $.LESS_THAN_SIGN ||
-            cp === $.EQUALS_SIGN ||
-            cp === $.GRAVE_ACCENT
-        ) {
-            this._err(ERR.unexpectedCharacterInUnquotedAttributeValue);
-            this.currentAttr.value += String.fromCodePoint(cp);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInTag);
-            this._emitEOFToken();
-        } else {
-            this.currentAttr.value += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this._leaveAttrValue();
+                this.state = State.BEFORE_ATTRIBUTE_NAME;
+                break;
+            }
+            case $.AMPERSAND: {
+                this.returnState = State.ATTRIBUTE_VALUE_UNQUOTED;
+                this.state = State.CHARACTER_REFERENCE;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._leaveAttrValue();
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                this.currentAttr.value += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.QUOTATION_MARK:
+            case $.APOSTROPHE:
+            case $.LESS_THAN_SIGN:
+            case $.EQUALS_SIGN:
+            case $.GRAVE_ACCENT: {
+                this._err(ERR.unexpectedCharacterInUnquotedAttributeValue);
+                this.currentAttr.value += String.fromCodePoint(cp);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInTag);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this.currentAttr.value += String.fromCodePoint(cp);
+            }
         }
     }
 
     // After attribute value (quoted) state
     //------------------------------------------------------------------
     private _stateAfterAttributeValueQuoted(cp: number) {
-        if (isWhitespace(cp)) {
-            this._leaveAttrValue(State.BEFORE_ATTRIBUTE_NAME);
-        } else if (cp === $.SOLIDUS) {
-            this._leaveAttrValue(State.SELF_CLOSING_START_TAG);
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._leaveAttrValue(State.DATA);
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInTag);
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingWhitespaceBetweenAttributes);
-            this.state = State.BEFORE_ATTRIBUTE_NAME;
-            this._stateBeforeAttributeName(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this._leaveAttrValue();
+                this.state = State.BEFORE_ATTRIBUTE_NAME;
+                break;
+            }
+            case $.SOLIDUS: {
+                this._leaveAttrValue();
+                this.state = State.SELF_CLOSING_START_TAG;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._leaveAttrValue();
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInTag);
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingWhitespaceBetweenAttributes);
+                this.state = State.BEFORE_ATTRIBUTE_NAME;
+                this._stateBeforeAttributeName(cp);
+            }
         }
     }
 
@@ -1611,17 +2026,25 @@ export class Tokenizer {
     private _stateBogusComment(cp: number) {
         const token = this.currentToken as CommentToken;
 
-        if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.data += REPLACEMENT_CHARACTER;
-        } else {
-            token.data += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.data += REPLACEMENT_CHARACTER;
+                break;
+            }
+            default: {
+                token.data += String.fromCodePoint(cp);
+            }
         }
     }
 
@@ -1672,20 +2095,28 @@ export class Tokenizer {
     // Comment start dash state
     //------------------------------------------------------------------
     private _stateCommentStartDash(cp: number) {
-        if (cp === $.HYPHEN_MINUS) {
-            this.state = State.COMMENT_END;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.abruptClosingOfEmptyComment);
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInComment);
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            (this.currentToken as CommentToken).data += '-';
-            this.state = State.COMMENT;
-            this._stateComment(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this.state = State.COMMENT_END;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.abruptClosingOfEmptyComment);
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInComment);
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                (this.currentToken as CommentToken).data += '-';
+                this.state = State.COMMENT;
+                this._stateComment(cp);
+            }
         }
     }
 
@@ -1694,20 +2125,30 @@ export class Tokenizer {
     private _stateComment(cp: number) {
         const token = this.currentToken as CommentToken;
 
-        if (cp === $.HYPHEN_MINUS) {
-            this.state = State.COMMENT_END_DASH;
-        } else if (cp === $.LESS_THAN_SIGN) {
-            token.data += '<';
-            this.state = State.COMMENT_LESS_THAN_SIGN;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.data += REPLACEMENT_CHARACTER;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInComment);
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.data += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                this.state = State.COMMENT_END_DASH;
+                break;
+            }
+            case $.LESS_THAN_SIGN: {
+                token.data += '<';
+                this.state = State.COMMENT_LESS_THAN_SIGN;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.data += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInComment);
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.data += String.fromCodePoint(cp);
+            }
         }
     }
 
@@ -1781,21 +2222,31 @@ export class Tokenizer {
     private _stateCommentEnd(cp: number) {
         const token = this.currentToken as CommentToken;
 
-        if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EXCLAMATION_MARK) {
-            this.state = State.COMMENT_END_BANG;
-        } else if (cp === $.HYPHEN_MINUS) {
-            token.data += '-';
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInComment);
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.data += '--';
-            this.state = State.COMMENT;
-            this._stateComment(cp);
+        switch (cp) {
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EXCLAMATION_MARK: {
+                this.state = State.COMMENT_END_BANG;
+                break;
+            }
+            case $.HYPHEN_MINUS: {
+                token.data += '-';
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInComment);
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.data += '--';
+                this.state = State.COMMENT;
+                this._stateComment(cp);
+            }
         }
     }
 
@@ -1804,75 +2255,106 @@ export class Tokenizer {
     private _stateCommentEndBang(cp: number) {
         const token = this.currentToken as CommentToken;
 
-        if (cp === $.HYPHEN_MINUS) {
-            token.data += '--!';
-            this.state = State.COMMENT_END_DASH;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.incorrectlyClosedComment);
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInComment);
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.data += '--!';
-            this.state = State.COMMENT;
-            this._stateComment(cp);
+        switch (cp) {
+            case $.HYPHEN_MINUS: {
+                token.data += '--!';
+                this.state = State.COMMENT_END_DASH;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.incorrectlyClosedComment);
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInComment);
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.data += '--!';
+                this.state = State.COMMENT;
+                this._stateComment(cp);
+            }
         }
     }
 
     // DOCTYPE state
     //------------------------------------------------------------------
     private _stateDoctype(cp: number) {
-        if (isWhitespace(cp)) {
-            this.state = State.BEFORE_DOCTYPE_NAME;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.BEFORE_DOCTYPE_NAME;
-            this._stateBeforeDoctypeName(cp);
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            this._createDoctypeToken(null);
-            (this.currentToken as DoctypeToken).forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingWhitespaceBeforeDoctypeName);
-            this.state = State.BEFORE_DOCTYPE_NAME;
-            this._stateBeforeDoctypeName(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this.state = State.BEFORE_DOCTYPE_NAME;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.BEFORE_DOCTYPE_NAME;
+                this._stateBeforeDoctypeName(cp);
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                this._createDoctypeToken(null);
+                (this.currentToken as DoctypeToken).forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingWhitespaceBeforeDoctypeName);
+                this.state = State.BEFORE_DOCTYPE_NAME;
+                this._stateBeforeDoctypeName(cp);
+            }
         }
     }
 
     // Before DOCTYPE name state
     //------------------------------------------------------------------
     private _stateBeforeDoctypeName(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
         if (isAsciiUpper(cp)) {
             this._createDoctypeToken(toAsciiLowerChar(cp));
             this.state = State.DOCTYPE_NAME;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            this._createDoctypeToken(REPLACEMENT_CHARACTER);
-            this.state = State.DOCTYPE_NAME;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.missingDoctypeName);
-            this._createDoctypeToken(null);
-            (this.currentToken as DoctypeToken).forceQuirks = true;
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            this._createDoctypeToken(null);
-            (this.currentToken as DoctypeToken).forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._createDoctypeToken(String.fromCodePoint(cp));
-            this.state = State.DOCTYPE_NAME;
-        }
+        } else
+            switch (cp) {
+                case $.SPACE:
+                case $.LINE_FEED:
+                case $.TABULATION:
+                case $.FORM_FEED: {
+                    // Ignore whitespace
+                    break;
+                }
+                case $.NULL: {
+                    this._err(ERR.unexpectedNullCharacter);
+                    this._createDoctypeToken(REPLACEMENT_CHARACTER);
+                    this.state = State.DOCTYPE_NAME;
+                    break;
+                }
+                case $.GREATER_THAN_SIGN: {
+                    this._err(ERR.missingDoctypeName);
+                    this._createDoctypeToken(null);
+                    (this.currentToken as DoctypeToken).forceQuirks = true;
+                    this._emitCurrentToken();
+                    this.state = State.DATA;
+                    break;
+                }
+                case $.EOF: {
+                    this._err(ERR.eofInDoctype);
+                    this._createDoctypeToken(null);
+                    (this.currentToken as DoctypeToken).forceQuirks = true;
+                    this._emitCurrentToken();
+                    this._emitEOFToken();
+                    break;
+                }
+                default: {
+                    this._createDoctypeToken(String.fromCodePoint(cp));
+                    this.state = State.DOCTYPE_NAME;
+                }
+            }
     }
 
     // DOCTYPE name state
@@ -1880,55 +2362,76 @@ export class Tokenizer {
     private _stateDoctypeName(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (isWhitespace(cp)) {
-            this.state = State.AFTER_DOCTYPE_NAME;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (isAsciiUpper(cp)) {
-            token.name += toAsciiLowerChar(cp);
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.name += REPLACEMENT_CHARACTER;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.name += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this.state = State.AFTER_DOCTYPE_NAME;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.name += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.name += isAsciiUpper(cp) ? toAsciiLowerChar(cp) : String.fromCodePoint(cp);
+            }
         }
     }
 
     // After DOCTYPE name state
     //------------------------------------------------------------------
     private _stateAfterDoctypeName(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else if (this._consumeSequenceIfMatch($$.PUBLIC_STRING, cp, false)) {
-            this.state = State.AFTER_DOCTYPE_PUBLIC_KEYWORD;
-        } else if (this._consumeSequenceIfMatch($$.SYSTEM_STRING, cp, false)) {
-            this.state = State.AFTER_DOCTYPE_SYSTEM_KEYWORD;
-        }
-        //NOTE: sequence lookup can be abrupted by hibernation. In that case lookup
-        //results are no longer valid and we will need to start over.
-        else if (!this._ensureHibernation()) {
-            this._err(ERR.invalidCharacterSequenceAfterDoctypeName);
-            token.forceQuirks = true;
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default:
+                if (this._consumeSequenceIfMatch($$.PUBLIC_STRING, cp, false)) {
+                    this.state = State.AFTER_DOCTYPE_PUBLIC_KEYWORD;
+                } else if (this._consumeSequenceIfMatch($$.SYSTEM_STRING, cp, false)) {
+                    this.state = State.AFTER_DOCTYPE_SYSTEM_KEYWORD;
+                }
+                //NOTE: sequence lookup can be abrupted by hibernation. In that case lookup
+                //results are no longer valid and we will need to start over.
+                else if (!this._ensureHibernation()) {
+                    this._err(ERR.invalidCharacterSequenceAfterDoctypeName);
+                    token.forceQuirks = true;
+                    this.state = State.BOGUS_DOCTYPE;
+                    this._stateBogusDoctype(cp);
+                }
         }
     }
 
@@ -1937,64 +2440,92 @@ export class Tokenizer {
     private _stateAfterDoctypePublicKeyword(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (isWhitespace(cp)) {
-            this.state = State.BEFORE_DOCTYPE_PUBLIC_IDENTIFIER;
-        } else if (cp === $.QUOTATION_MARK) {
-            this._err(ERR.missingWhitespaceAfterDoctypePublicKeyword);
-            token.publicId = '';
-            this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED;
-        } else if (cp === $.APOSTROPHE) {
-            this._err(ERR.missingWhitespaceAfterDoctypePublicKeyword);
-            token.publicId = '';
-            this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.missingDoctypePublicIdentifier);
-            token.forceQuirks = true;
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingQuoteBeforeDoctypePublicIdentifier);
-            token.forceQuirks = true;
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this.state = State.BEFORE_DOCTYPE_PUBLIC_IDENTIFIER;
+                break;
+            }
+            case $.QUOTATION_MARK: {
+                this._err(ERR.missingWhitespaceAfterDoctypePublicKeyword);
+                token.publicId = '';
+                this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED;
+                break;
+            }
+            case $.APOSTROPHE: {
+                this._err(ERR.missingWhitespaceAfterDoctypePublicKeyword);
+                token.publicId = '';
+                this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.missingDoctypePublicIdentifier);
+                token.forceQuirks = true;
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingQuoteBeforeDoctypePublicIdentifier);
+                token.forceQuirks = true;
+                this.state = State.BOGUS_DOCTYPE;
+                this._stateBogusDoctype(cp);
+            }
         }
     }
 
     // Before DOCTYPE public identifier state
     //------------------------------------------------------------------
     private _stateBeforeDoctypePublicIdentifier(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.QUOTATION_MARK) {
-            token.publicId = '';
-            this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED;
-        } else if (cp === $.APOSTROPHE) {
-            token.publicId = '';
-            this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.missingDoctypePublicIdentifier);
-            token.forceQuirks = true;
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingQuoteBeforeDoctypePublicIdentifier);
-            token.forceQuirks = true;
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.QUOTATION_MARK: {
+                token.publicId = '';
+                this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED;
+                break;
+            }
+            case $.APOSTROPHE: {
+                token.publicId = '';
+                this.state = State.DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.missingDoctypePublicIdentifier);
+                token.forceQuirks = true;
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingQuoteBeforeDoctypePublicIdentifier);
+                token.forceQuirks = true;
+                this.state = State.BOGUS_DOCTYPE;
+                this._stateBogusDoctype(cp);
+            }
         }
     }
 
@@ -2003,23 +2534,33 @@ export class Tokenizer {
     private _stateDoctypePublicIdentifierDoubleQuoted(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.QUOTATION_MARK) {
-            this.state = State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.publicId += REPLACEMENT_CHARACTER;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.abruptDoctypePublicIdentifier);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.publicId += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.QUOTATION_MARK: {
+                this.state = State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.publicId += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.abruptDoctypePublicIdentifier);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this.state = State.DATA;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.publicId += String.fromCodePoint(cp);
+            }
         }
     }
 
@@ -2028,23 +2569,33 @@ export class Tokenizer {
     private _stateDoctypePublicIdentifierSingleQuoted(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.APOSTROPHE) {
-            this.state = State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.publicId += REPLACEMENT_CHARACTER;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.abruptDoctypePublicIdentifier);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.publicId += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.APOSTROPHE: {
+                this.state = State.AFTER_DOCTYPE_PUBLIC_IDENTIFIER;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.publicId += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.abruptDoctypePublicIdentifier);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this.state = State.DATA;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.publicId += String.fromCodePoint(cp);
+            }
         }
     }
 
@@ -2053,60 +2604,88 @@ export class Tokenizer {
     private _stateAfterDoctypePublicIdentifier(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (isWhitespace(cp)) {
-            this.state = State.BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.QUOTATION_MARK) {
-            this._err(ERR.missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers);
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
-        } else if (cp === $.APOSTROPHE) {
-            this._err(ERR.missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers);
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this.state = State.BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.QUOTATION_MARK: {
+                this._err(ERR.missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers);
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
+                break;
+            }
+            case $.APOSTROPHE: {
+                this._err(ERR.missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers);
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this.state = State.BOGUS_DOCTYPE;
+                this._stateBogusDoctype(cp);
+            }
         }
     }
 
     // Between DOCTYPE public and system identifiers state
     //------------------------------------------------------------------
     private _stateBetweenDoctypePublicAndSystemIdentifiers(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.GREATER_THAN_SIGN) {
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.QUOTATION_MARK) {
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
-        } else if (cp === $.APOSTROPHE) {
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._emitCurrentToken();
+                this.state = State.DATA;
+                break;
+            }
+            case $.QUOTATION_MARK: {
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
+                break;
+            }
+            case $.APOSTROPHE: {
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this.state = State.BOGUS_DOCTYPE;
+                this._stateBogusDoctype(cp);
+            }
         }
     }
 
@@ -2115,64 +2694,92 @@ export class Tokenizer {
     private _stateAfterDoctypeSystemKeyword(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (isWhitespace(cp)) {
-            this.state = State.BEFORE_DOCTYPE_SYSTEM_IDENTIFIER;
-        } else if (cp === $.QUOTATION_MARK) {
-            this._err(ERR.missingWhitespaceAfterDoctypeSystemKeyword);
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
-        } else if (cp === $.APOSTROPHE) {
-            this._err(ERR.missingWhitespaceAfterDoctypeSystemKeyword);
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.missingDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                this.state = State.BEFORE_DOCTYPE_SYSTEM_IDENTIFIER;
+                break;
+            }
+            case $.QUOTATION_MARK: {
+                this._err(ERR.missingWhitespaceAfterDoctypeSystemKeyword);
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
+                break;
+            }
+            case $.APOSTROPHE: {
+                this._err(ERR.missingWhitespaceAfterDoctypeSystemKeyword);
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.missingDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this.state = State.BOGUS_DOCTYPE;
+                this._stateBogusDoctype(cp);
+            }
         }
     }
 
     // Before DOCTYPE system identifier state
     //------------------------------------------------------------------
     private _stateBeforeDoctypeSystemIdentifier(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.QUOTATION_MARK) {
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
-        } else if (cp === $.APOSTROPHE) {
-            token.systemId = '';
-            this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.missingDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this.state = State.DATA;
-            this._emitCurrentToken();
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.QUOTATION_MARK: {
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED;
+                break;
+            }
+            case $.APOSTROPHE: {
+                token.systemId = '';
+                this.state = State.DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.missingDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this.state = State.DATA;
+                this._emitCurrentToken();
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.missingQuoteBeforeDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this.state = State.BOGUS_DOCTYPE;
+                this._stateBogusDoctype(cp);
+            }
         }
     }
 
@@ -2181,23 +2788,33 @@ export class Tokenizer {
     private _stateDoctypeSystemIdentifierDoubleQuoted(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.QUOTATION_MARK) {
-            this.state = State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.systemId += REPLACEMENT_CHARACTER;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.abruptDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.systemId += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.QUOTATION_MARK: {
+                this.state = State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.systemId += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.abruptDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this.state = State.DATA;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.systemId += String.fromCodePoint(cp);
+            }
         }
     }
 
@@ -2206,61 +2823,89 @@ export class Tokenizer {
     private _stateDoctypeSystemIdentifierSingleQuoted(cp: number) {
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.APOSTROPHE) {
-            this.state = State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-            token.systemId += REPLACEMENT_CHARACTER;
-        } else if (cp === $.GREATER_THAN_SIGN) {
-            this._err(ERR.abruptDoctypeSystemIdentifier);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            token.systemId += String.fromCodePoint(cp);
+        switch (cp) {
+            case $.APOSTROPHE: {
+                this.state = State.AFTER_DOCTYPE_SYSTEM_IDENTIFIER;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                token.systemId += REPLACEMENT_CHARACTER;
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._err(ERR.abruptDoctypeSystemIdentifier);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this.state = State.DATA;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                token.systemId += String.fromCodePoint(cp);
+            }
         }
     }
 
     // After DOCTYPE system identifier state
     //------------------------------------------------------------------
     private _stateAfterDoctypeSystemIdentifier(cp: number) {
-        if (isWhitespace(cp)) {
-            return;
-        }
-
         const token = this.currentToken as DoctypeToken;
 
-        if (cp === $.GREATER_THAN_SIGN) {
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.EOF) {
-            this._err(ERR.eofInDoctype);
-            token.forceQuirks = true;
-            this._emitCurrentToken();
-            this._emitEOFToken();
-        } else {
-            this._err(ERR.unexpectedCharacterAfterDoctypeSystemIdentifier);
-            this.state = State.BOGUS_DOCTYPE;
-            this._stateBogusDoctype(cp);
+        switch (cp) {
+            case $.SPACE:
+            case $.LINE_FEED:
+            case $.TABULATION:
+            case $.FORM_FEED: {
+                // Ignore whitespace
+                break;
+            }
+            case $.GREATER_THAN_SIGN: {
+                this._emitCurrentToken();
+                this.state = State.DATA;
+                break;
+            }
+            case $.EOF: {
+                this._err(ERR.eofInDoctype);
+                token.forceQuirks = true;
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default: {
+                this._err(ERR.unexpectedCharacterAfterDoctypeSystemIdentifier);
+                this.state = State.BOGUS_DOCTYPE;
+                this._stateBogusDoctype(cp);
+            }
         }
     }
 
     // Bogus DOCTYPE state
     //------------------------------------------------------------------
     private _stateBogusDoctype(cp: number) {
-        if (cp === $.GREATER_THAN_SIGN) {
-            this._emitCurrentToken();
-            this.state = State.DATA;
-        } else if (cp === $.NULL) {
-            this._err(ERR.unexpectedNullCharacter);
-        } else if (cp === $.EOF) {
-            this._emitCurrentToken();
-            this._emitEOFToken();
+        switch (cp) {
+            case $.GREATER_THAN_SIGN: {
+                this._emitCurrentToken();
+                this.state = State.DATA;
+                break;
+            }
+            case $.NULL: {
+                this._err(ERR.unexpectedNullCharacter);
+                break;
+            }
+            case $.EOF: {
+                this._emitCurrentToken();
+                this._emitEOFToken();
+                break;
+            }
+            default:
+            // Do nothing
         }
     }
 
@@ -2444,7 +3089,7 @@ export class Tokenizer {
         if (this.charRefCode === $.NULL) {
             this._err(ERR.nullCharacterReference);
             this.charRefCode = $.REPLACEMENT_CHARACTER;
-        } else if (this.charRefCode > 0x10ffff) {
+        } else if (this.charRefCode > 0x10_ff_ff) {
             this._err(ERR.characterReferenceOutsideUnicodeRange);
             this.charRefCode = $.REPLACEMENT_CHARACTER;
         } else if (isSurrogate(this.charRefCode)) {

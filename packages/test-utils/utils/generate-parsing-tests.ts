@@ -1,8 +1,8 @@
 import { ParserOptions } from 'parse5/lib/parser/index.js';
 import { ParserError } from 'parse5/lib/common/error-codes.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as assert from 'assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as assert from 'node:assert';
 import { serializeToDatFileFormat } from './serialize-to-dat-file-format.js';
 import { generateTestsForEachTreeAdapter } from './common.js';
 import { parseDatFile, DatFile } from '@parse5/test-utils/utils/parse-dat-file.js';
@@ -20,30 +20,30 @@ export function loadTreeConstructionTestData<T extends TreeAdapterTypeMap>(
 ): TreeConstructionTestData<T>[] {
     const tests: TreeConstructionTestData<T>[] = [];
 
-    dataDirs.forEach((dataDir) => {
+    for (const dataDir of dataDirs) {
         const dataDirPath = typeof dataDir === 'string' ? dataDir : dataDir.pathname;
         const testSetFileNames = fs.readdirSync(dataDirPath);
         const dirName = path.basename(dataDirPath);
 
-        testSetFileNames.forEach((fileName) => {
+        for (const fileName of testSetFileNames) {
             if (path.extname(fileName) !== '.dat') {
-                return;
+                continue;
             }
 
             const filePath = path.join(dataDirPath, fileName);
             const testSet = fs.readFileSync(filePath, 'utf-8');
             const setName = fileName.replace('.dat', '');
 
-            parseDatFile(testSet, treeAdapter).forEach((test) => {
+            for (const test of parseDatFile(testSet, treeAdapter)) {
                 tests.push({
                     ...test,
                     idx: tests.length,
                     setName,
                     dirName,
                 });
-            });
-        });
-    });
+            }
+        }
+    }
 
     return tests;
 }
@@ -132,13 +132,13 @@ export function generateParsingTests(
     parse: ParseMethod<TreeAdapterTypeMap>
 ): void {
     generateTestsForEachTreeAdapter(name, (treeAdapter) => {
-        loadTreeConstructionTestData(testSuite, treeAdapter)
-            .filter((test) => !skipFragments || !test.fragmentContext)
-            .forEach((test) => {
-                it(
-                    `${prefix}(${test.dirName}) - ${test.idx}.${test.setName} - \`${test.input}\` (line ${test.lineNum})`,
-                    createParsingTest<TreeAdapterTypeMap>(test, treeAdapter, parse, { withoutErrors })
-                );
-            });
+        for (const test of loadTreeConstructionTestData(testSuite, treeAdapter).filter(
+            (test) => !skipFragments || !test.fragmentContext
+        )) {
+            it(
+                `${prefix}(${test.dirName}) - ${test.idx}.${test.setName} - \`${test.input}\` (line ${test.lineNum})`,
+                createParsingTest<TreeAdapterTypeMap>(test, treeAdapter, parse, { withoutErrors })
+            );
+        }
     });
 }

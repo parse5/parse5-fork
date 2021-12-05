@@ -1,4 +1,4 @@
-import { readFileSync, createReadStream, readdirSync } from 'fs';
+import { readFileSync, createReadStream, readdirSync } from 'node:fs';
 import Benchmark from 'benchmark';
 import { loadTreeConstructionTestData } from '@parse5/test-utils/utils/generate-parsing-tests.js';
 import { loadSAXParserTestData } from '@parse5/test-utils/utils/load-sax-parser-test-data.js';
@@ -61,7 +61,7 @@ global.files = readdirSync(saxPath).map((dirName) => {
 
 // Utils
 function getHz(suite, testName) {
-    return suite.filter((t) => t.name === testName)[0].hz;
+    return suite.find((t) => t.name === testName).hz;
 }
 
 function runBench({ name, workingCopyFn, upstreamFn, defer = false }) {

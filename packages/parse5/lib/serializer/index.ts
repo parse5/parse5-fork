@@ -5,7 +5,7 @@ import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface
 
 //Escaping regexes
 const AMP_REGEX = /&/g;
-const NBSP_REGEX = /\u00a0/g;
+const NBSP_REGEX = /\u00A0/g;
 const DOUBLE_QUOTE_REGEX = /"/g;
 const LT_REGEX = /</g;
 const GT_REGEX = />/g;
@@ -114,19 +114,28 @@ export class Serializer<T extends TreeAdapterTypeMap> {
 
             if (!attr.namespace) {
                 this.html += attr.name;
-            } else if (attr.namespace === NS.XML) {
-                this.html += `xml:${attr.name}`;
-            } else if (attr.namespace === NS.XMLNS) {
-                if (attr.name !== 'xmlns') {
-                    this.html += 'xmlns:';
-                }
+            } else
+                switch (attr.namespace) {
+                    case NS.XML: {
+                        this.html += `xml:${attr.name}`;
+                        break;
+                    }
+                    case NS.XMLNS: {
+                        if (attr.name !== 'xmlns') {
+                            this.html += 'xmlns:';
+                        }
 
-                this.html += attr.name;
-            } else if (attr.namespace === NS.XLINK) {
-                this.html += `xlink:${attr.name}`;
-            } else {
-                this.html += `${attr.prefix}:${attr.name}`;
-            }
+                        this.html += attr.name;
+                        break;
+                    }
+                    case NS.XLINK: {
+                        this.html += `xlink:${attr.name}`;
+                        break;
+                    }
+                    default: {
+                        this.html += `${attr.prefix}:${attr.name}`;
+                    }
+                }
 
             this.html += `="${value}"`;
         }
@@ -136,15 +145,10 @@ export class Serializer<T extends TreeAdapterTypeMap> {
         const content = this.treeAdapter.getTextNodeContent(node);
         const parent = this.treeAdapter.getParentNode(node);
 
-        if (
-            parent &&
-            this.treeAdapter.isElementNode(parent) &&
-            UNESCAPED_TEXT.has(this.treeAdapter.getTagName(parent))
-        ) {
-            this.html += content;
-        } else {
-            this.html += escapeString(content, false);
-        }
+        this.html +=
+            parent && this.treeAdapter.isElementNode(parent) && UNESCAPED_TEXT.has(this.treeAdapter.getTagName(parent))
+                ? content
+                : escapeString(content, false);
     }
 
     private _serializeCommentNode(node: T['commentNode']) {

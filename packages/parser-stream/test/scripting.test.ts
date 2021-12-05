@@ -38,8 +38,8 @@ generateParsingTests(
                     eval(script);
                     /* eslint-enable no-eval */
                     resume();
-                } catch (err) {
-                    reject(err);
+                } catch (error) {
+                    reject(error);
                 }
             });
         });

@@ -1,4 +1,4 @@
-import { Transform } from 'stream';
+import { Transform } from 'node:stream';
 import { Tokenizer } from 'parse5/lib/tokenizer/index.js';
 import {
     TokenType,

@@ -3,7 +3,8 @@ import { Serializer, SerializerOptions } from './serializer/index.js';
 import type { DefaultTreeAdapterMap } from './tree-adapters/default.js';
 import type { TreeAdapterTypeMap } from './tree-adapters/interface.js';
 
-export { ParserOptions, SerializerOptions };
+export { ParserOptions } from './parser/index.js';
+export { SerializerOptions } from './serializer/index.js';
 
 // Shorthands
 

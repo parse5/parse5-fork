@@ -1,4 +1,4 @@
-import { Readable } from 'stream';
+import { Readable } from 'node:stream';
 import { Serializer, SerializerOptions } from 'parse5/lib/serializer/index.js';
 import type { TreeAdapterTypeMap } from 'parse5/lib/tree-adapters/interface';
 

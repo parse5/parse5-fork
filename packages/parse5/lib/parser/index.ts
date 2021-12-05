@@ -368,26 +368,36 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
     }
 
-    _initTokenizerForFragmentParsing() {
-        if (this.fragmentContext && this.treeAdapter.getNamespaceURI(this.fragmentContext) === NS.HTML) {
-            const tn = this.fragmentContextID;
+    private _initTokenizerForFragmentParsing() {
+        if (!this.fragmentContext || this.treeAdapter.getNamespaceURI(this.fragmentContext) !== NS.HTML) {
+            return;
+        }
 
-            if (tn === $.TITLE || tn === $.TEXTAREA) {
+        switch (this.fragmentContextID) {
+            case $.TITLE:
+            case $.TEXTAREA: {
                 this.tokenizer.state = TokenizerMode.RCDATA;
-            } else if (
-                tn === $.STYLE ||
-                tn === $.XMP ||
-                tn === $.IFRAME ||
-                tn === $.NOEMBED ||
-                tn === $.NOFRAMES ||
-                tn === $.NOSCRIPT
-            ) {
-                this.tokenizer.state = TokenizerMode.RAWTEXT;
-            } else if (tn === $.SCRIPT) {
-                this.tokenizer.state = TokenizerMode.SCRIPT_DATA;
-            } else if (tn === $.PLAINTEXT) {
-                this.tokenizer.state = TokenizerMode.PLAINTEXT;
+                break;
             }
+            case $.STYLE:
+            case $.XMP:
+            case $.IFRAME:
+            case $.NOEMBED:
+            case $.NOFRAMES:
+            case $.NOSCRIPT: {
+                this.tokenizer.state = TokenizerMode.RAWTEXT;
+                break;
+            }
+            case $.SCRIPT: {
+                this.tokenizer.state = TokenizerMode.SCRIPT_DATA;
+                break;
+            }
+            case $.PLAINTEXT: {
+                this.tokenizer.state = TokenizerMode.PLAINTEXT;
+                break;
+            }
+            default:
+            // Do nothing
         }
     }
 
@@ -593,52 +603,101 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     _processToken(token: Token) {
-        if (this.insertionMode === InsertionMode.INITIAL) {
-            modeInitial(this, token);
-        } else if (this.insertionMode === InsertionMode.BEFORE_HTML) {
-            modeBeforeHtml(this, token);
-        } else if (this.insertionMode === InsertionMode.BEFORE_HEAD) {
-            modeBeforeHead(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_HEAD) {
-            modeInHead(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_HEAD_NO_SCRIPT) {
-            modeInHeadNoScript(this, token);
-        } else if (this.insertionMode === InsertionMode.AFTER_HEAD) {
-            modeAfterHead(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_BODY) {
-            modeInBody(this, token);
-        } else if (this.insertionMode === InsertionMode.TEXT) {
-            modeText(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_TABLE) {
-            modeInTable(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_TABLE_TEXT) {
-            modeInTableText(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_CAPTION) {
-            modeInCaption(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_COLUMN_GROUP) {
-            modeInColumnGroup(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_TABLE_BODY) {
-            modeInTableBody(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_ROW) {
-            modeInRow(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_CELL) {
-            modeInCell(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_SELECT) {
-            modeInSelect(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_SELECT_IN_TABLE) {
-            modeInSelectInTable(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_TEMPLATE) {
-            modeInTemplate(this, token);
-        } else if (this.insertionMode === InsertionMode.AFTER_BODY) {
-            modeAfterBody(this, token);
-        } else if (this.insertionMode === InsertionMode.IN_FRAMESET) {
-            modeInFrameset(this, token);
-        } else if (this.insertionMode === InsertionMode.AFTER_FRAMESET) {
-            modeAfterFrameset(this, token);
-        } else if (this.insertionMode === InsertionMode.AFTER_AFTER_BODY) {
-            modeAfterAfterBody(this, token);
-        } else if (this.insertionMode === InsertionMode.AFTER_AFTER_FRAMESET) {
-            modeAfterAfterFrameset(this, token);
+        switch (this.insertionMode) {
+            case InsertionMode.INITIAL: {
+                modeInitial(this, token);
+                break;
+            }
+            case InsertionMode.BEFORE_HTML: {
+                modeBeforeHtml(this, token);
+                break;
+            }
+            case InsertionMode.BEFORE_HEAD: {
+                modeBeforeHead(this, token);
+                break;
+            }
+            case InsertionMode.IN_HEAD: {
+                modeInHead(this, token);
+                break;
+            }
+            case InsertionMode.IN_HEAD_NO_SCRIPT: {
+                modeInHeadNoScript(this, token);
+                break;
+            }
+            case InsertionMode.AFTER_HEAD: {
+                modeAfterHead(this, token);
+                break;
+            }
+            case InsertionMode.IN_BODY: {
+                modeInBody(this, token);
+                break;
+            }
+            case InsertionMode.TEXT: {
+                modeText(this, token);
+                break;
+            }
+            case InsertionMode.IN_TABLE: {
+                modeInTable(this, token);
+                break;
+            }
+            case InsertionMode.IN_TABLE_TEXT: {
+                modeInTableText(this, token);
+                break;
+            }
+            case InsertionMode.IN_CAPTION: {
+                modeInCaption(this, token);
+                break;
+            }
+            case InsertionMode.IN_COLUMN_GROUP: {
+                modeInColumnGroup(this, token);
+                break;
+            }
+            case InsertionMode.IN_TABLE_BODY: {
+                modeInTableBody(this, token);
+                break;
+            }
+            case InsertionMode.IN_ROW: {
+                modeInRow(this, token);
+                break;
+            }
+            case InsertionMode.IN_CELL: {
+                modeInCell(this, token);
+                break;
+            }
+            case InsertionMode.IN_SELECT: {
+                modeInSelect(this, token);
+                break;
+            }
+            case InsertionMode.IN_SELECT_IN_TABLE: {
+                modeInSelectInTable(this, token);
+                break;
+            }
+            case InsertionMode.IN_TEMPLATE: {
+                modeInTemplate(this, token);
+                break;
+            }
+            case InsertionMode.AFTER_BODY: {
+                modeAfterBody(this, token);
+                break;
+            }
+            case InsertionMode.IN_FRAMESET: {
+                modeInFrameset(this, token);
+                break;
+            }
+            case InsertionMode.AFTER_FRAMESET: {
+                modeAfterFrameset(this, token);
+                break;
+            }
+            case InsertionMode.AFTER_AFTER_BODY: {
+                modeAfterAfterBody(this, token);
+                break;
+            }
+            case InsertionMode.AFTER_AFTER_FRAMESET: {
+                modeAfterAfterFrameset(this, token);
+                break;
+            }
+            default:
+            // Do nothing
         }
 
         //NOTE: <body> and <html> are never popped from the stack, so we need to updated
@@ -657,18 +716,33 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     _processTokenInForeignContent(token: Token) {
-        if (token.type === TokenType.CHARACTER) {
-            characterInForeignContent(this, token);
-        } else if (token.type === TokenType.NULL_CHARACTER) {
-            nullCharacterInForeignContent(this, token);
-        } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-            this._insertCharacters(token);
-        } else if (token.type === TokenType.COMMENT) {
-            appendComment(this, token);
-        } else if (token.type === TokenType.START_TAG) {
-            startTagInForeignContent(this, token);
-        } else if (token.type === TokenType.END_TAG) {
-            endTagInForeignContent(this, token);
+        switch (token.type) {
+            case TokenType.CHARACTER: {
+                characterInForeignContent(this, token);
+                break;
+            }
+            case TokenType.NULL_CHARACTER: {
+                nullCharacterInForeignContent(this, token);
+                break;
+            }
+            case TokenType.WHITESPACE_CHARACTER: {
+                this._insertCharacters(token);
+                break;
+            }
+            case TokenType.COMMENT: {
+                appendComment(this, token);
+                break;
+            }
+            case TokenType.START_TAG: {
+                startTagInForeignContent(this, token);
+                break;
+            }
+            case TokenType.END_TAG: {
+                endTagInForeignContent(this, token);
+                break;
+            }
+            default:
+            // Do nothing
         }
     }
 
@@ -827,7 +901,6 @@ export class Parser<T extends TreeAdapterTypeMap> {
                 } else {
                     parent = this.openElements.items[i - 1];
                 }
-
                 break;
             }
         }
@@ -985,7 +1058,7 @@ function aaReplaceFormattingElement<T extends TreeAdapterTypeMap>(
     p._adoptNodes(furthestBlock, newElement);
     p.treeAdapter.appendChild(furthestBlock, newElement);
 
-    p.activeFormattingElements.insertElementAfterBookmark(newElement, formattingElementEntry.token);
+    p.activeFormattingElements.insertElementAfterBookmark(newElement, token);
     p.activeFormattingElements.removeEntry(formattingElementEntry);
 
     p.openElements.remove(formattingElementEntry.element);
@@ -1020,11 +1093,6 @@ function callAdoptionAgency<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 
 //Generic token handlers
 //------------------------------------------------------------------
-
-function misplacedDoctype<T extends TreeAdapterTypeMap>(p: Parser<T>, token: DoctypeToken) {
-    p._err(token, ERR.misplacedDoctype);
-}
-
 function appendComment<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CommentToken) {
     p._appendCommentNode(token, p.openElements.currentTmplContentOrNode);
 }
@@ -1085,14 +1153,27 @@ function tokenInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 // The "before html" insertion mode
 //------------------------------------------------------------------
 function modeBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
-        tokenBeforeHtml(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagBeforeHtml(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagBeforeHtml(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.EOF: {
+            tokenBeforeHtml(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagBeforeHtml(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagBeforeHtml(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -1122,16 +1203,31 @@ function tokenBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Toke
 // The "before head" insertion mode
 //------------------------------------------------------------------
 function modeBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
-        tokenBeforeHead(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagBeforeHead(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagBeforeHead(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.EOF: {
+            tokenBeforeHead(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.DOCTYPE: {
+            p._err(token, ERR.misplacedDoctype);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagBeforeHead(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagBeforeHead(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -1169,80 +1265,126 @@ function tokenBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Toke
 // The "in head" insertion mode
 //------------------------------------------------------------------
 function modeInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
-        tokenInHead(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInHead(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInHead(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.EOF: {
+            tokenInHead(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.DOCTYPE: {
+            p._err(token, ERR.misplacedDoctype);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInHead(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInHead(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
 function startTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.HTML) {
-        startTagInBody(p, token);
-    } else if (tn === $.BASE || tn === $.BASEFONT || tn === $.BGSOUND || tn === $.LINK || tn === $.META) {
-        p._appendElement(token, NS.HTML);
-        token.ackSelfClosing = true;
-    } else if (tn === $.TITLE) {
-        p._switchToTextParsing(token, TokenizerMode.RCDATA);
-    } else if (tn === $.NOSCRIPT) {
-        if (p.options.scriptingEnabled) {
-            p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
-        } else {
-            p._insertElement(token, NS.HTML);
-            p.insertionMode = InsertionMode.IN_HEAD_NO_SCRIPT;
+    switch (token.tagID) {
+        case $.HTML: {
+            startTagInBody(p, token);
+            break;
         }
-    } else if (tn === $.NOFRAMES || tn === $.STYLE) {
-        p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
-    } else if (tn === $.SCRIPT) {
-        p._switchToTextParsing(token, TokenizerMode.SCRIPT_DATA);
-    } else if (tn === $.TEMPLATE) {
-        p._insertTemplate(token);
-        p.activeFormattingElements.insertMarker();
-        p.framesetOk = false;
-        p.insertionMode = InsertionMode.IN_TEMPLATE;
-        p.tmplInsertionModeStack.unshift(InsertionMode.IN_TEMPLATE);
-    } else if (tn === $.HEAD) {
-        p._err(token, ERR.misplacedStartTagForHeadElement);
-    } else {
-        tokenInHead(p, token);
+        case $.BASE:
+        case $.BASEFONT:
+        case $.BGSOUND:
+        case $.LINK:
+        case $.META: {
+            p._appendElement(token, NS.HTML);
+            token.ackSelfClosing = true;
+            break;
+        }
+        case $.TITLE: {
+            p._switchToTextParsing(token, TokenizerMode.RCDATA);
+            break;
+        }
+        case $.NOSCRIPT: {
+            if (p.options.scriptingEnabled) {
+                p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
+            } else {
+                p._insertElement(token, NS.HTML);
+                p.insertionMode = InsertionMode.IN_HEAD_NO_SCRIPT;
+            }
+            break;
+        }
+        case $.NOFRAMES:
+        case $.STYLE: {
+            p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
+            break;
+        }
+        case $.SCRIPT: {
+            p._switchToTextParsing(token, TokenizerMode.SCRIPT_DATA);
+            break;
+        }
+        case $.TEMPLATE: {
+            p._insertTemplate(token);
+            p.activeFormattingElements.insertMarker();
+            p.framesetOk = false;
+            p.insertionMode = InsertionMode.IN_TEMPLATE;
+            p.tmplInsertionModeStack.unshift(InsertionMode.IN_TEMPLATE);
+            break;
+        }
+        case $.HEAD: {
+            p._err(token, ERR.misplacedStartTagForHeadElement);
+            break;
+        }
+        default: {
+            tokenInHead(p, token);
+        }
     }
 }
 
 function endTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
+    switch (token.tagID) {
+        case $.HEAD: {
+            p.openElements.pop();
+            p.insertionMode = InsertionMode.AFTER_HEAD;
+            break;
+        }
+        case $.BODY:
+        case $.BR:
+        case $.HTML: {
+            tokenInHead(p, token);
+            break;
+        }
+        case $.TEMPLATE: {
+            if (p.openElements.tmplCount > 0) {
+                p.openElements.generateImpliedEndTagsThoroughly();
 
-    if (tn === $.HEAD) {
-        p.openElements.pop();
-        p.insertionMode = InsertionMode.AFTER_HEAD;
-    } else if (tn === $.BODY || tn === $.BR || tn === $.HTML) {
-        tokenInHead(p, token);
-    } else if (tn === $.TEMPLATE) {
-        if (p.openElements.tmplCount > 0) {
-            p.openElements.generateImpliedEndTagsThoroughly();
+                if (p.openElements.currentTagId !== $.TEMPLATE) {
+                    p._err(token, ERR.closingOfElementWithOpenChildElements);
+                }
 
-            if (p.openElements.currentTagId !== $.TEMPLATE) {
-                p._err(token, ERR.closingOfElementWithOpenChildElements);
+                p.openElements.popUntilTagNamePopped($.TEMPLATE);
+                p.activeFormattingElements.clearToLastMarker();
+                p.tmplInsertionModeStack.shift();
+                p._resetInsertionMode();
+            } else {
+                p._err(token, ERR.endTagWithoutMatchingOpenElement);
             }
-
-            p.openElements.popUntilTagNamePopped($.TEMPLATE);
-            p.activeFormattingElements.clearToLastMarker();
-            p.tmplInsertionModeStack.shift();
-            p._resetInsertionMode();
-        } else {
+            break;
+        }
+        default: {
             p._err(token, ERR.endTagWithoutMatchingOpenElement);
         }
-    } else {
-        p._err(token, ERR.endTagWithoutMatchingOpenElement);
     }
 }
 
@@ -1255,40 +1397,61 @@ function tokenInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
 // The "in head no script" insertion mode
 //------------------------------------------------------------------
 function modeInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
-        tokenInHeadNoScript(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInHeadNoScript(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInHeadNoScript(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.EOF: {
+            tokenInHeadNoScript(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.DOCTYPE: {
+            p._err(token, ERR.misplacedDoctype);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInHeadNoScript(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInHeadNoScript(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
 function startTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.HTML) {
-        startTagInBody(p, token);
-    } else if (
-        tn === $.BASEFONT ||
-        tn === $.BGSOUND ||
-        tn === $.HEAD ||
-        tn === $.LINK ||
-        tn === $.META ||
-        tn === $.NOFRAMES ||
-        tn === $.STYLE
-    ) {
-        startTagInHead(p, token);
-    } else if (tn === $.NOSCRIPT) {
-        p._err(token, ERR.nestedNoscriptInHead);
-    } else {
-        tokenInHeadNoScript(p, token);
+    switch (token.tagID) {
+        case $.HTML: {
+            startTagInBody(p, token);
+            break;
+        }
+        case $.BASEFONT:
+        case $.BGSOUND:
+        case $.HEAD:
+        case $.LINK:
+        case $.META:
+        case $.NOFRAMES:
+        case $.STYLE: {
+            startTagInHead(p, token);
+            break;
+        }
+        case $.NOSCRIPT: {
+            p._err(token, ERR.nestedNoscriptInHead);
+            break;
+        }
+        default: {
+            tokenInHeadNoScript(p, token);
+        }
     }
 }
 
@@ -1317,53 +1480,78 @@ function tokenInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 // The "after head" insertion mode
 //------------------------------------------------------------------
 function modeAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER || token.type === TokenType.EOF) {
-        tokenAfterHead(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.DOCTYPE) {
-        misplacedDoctype(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagAfterHead(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagAfterHead(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.EOF: {
+            tokenAfterHead(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.DOCTYPE: {
+            p._err(token, ERR.misplacedDoctype);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagAfterHead(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagAfterHead(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
 function startTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.HTML) {
-        startTagInBody(p, token);
-    } else if (tn === $.BODY) {
-        p._insertElement(token, NS.HTML);
-        p.framesetOk = false;
-        p.insertionMode = InsertionMode.IN_BODY;
-    } else if (tn === $.FRAMESET) {
-        p._insertElement(token, NS.HTML);
-        p.insertionMode = InsertionMode.IN_FRAMESET;
-    } else if (
-        tn === $.BASE ||
-        tn === $.BASEFONT ||
-        tn === $.BGSOUND ||
-        tn === $.LINK ||
-        tn === $.META ||
-        tn === $.NOFRAMES ||
-        tn === $.SCRIPT ||
-        tn === $.STYLE ||
-        tn === $.TEMPLATE ||
-        tn === $.TITLE
-    ) {
-        p._err(token, ERR.abandonedHeadElementChild);
-        p.openElements.push(p.headElement!, $.HEAD);
-        startTagInHead(p, token);
-        p.openElements.remove(p.headElement!);
-    } else if (tn === $.HEAD) {
-        p._err(token, ERR.misplacedStartTagForHeadElement);
-    } else {
-        tokenAfterHead(p, token);
+    switch (token.tagID) {
+        case $.HTML: {
+            startTagInBody(p, token);
+            break;
+        }
+        case $.BODY: {
+            p._insertElement(token, NS.HTML);
+            p.framesetOk = false;
+            p.insertionMode = InsertionMode.IN_BODY;
+            break;
+        }
+        case $.FRAMESET: {
+            p._insertElement(token, NS.HTML);
+            p.insertionMode = InsertionMode.IN_FRAMESET;
+            break;
+        }
+        case $.BASE:
+        case $.BASEFONT:
+        case $.BGSOUND:
+        case $.LINK:
+        case $.META:
+        case $.NOFRAMES:
+        case $.SCRIPT:
+        case $.STYLE:
+        case $.TEMPLATE:
+        case $.TITLE: {
+            p._err(token, ERR.abandonedHeadElementChild);
+            p.openElements.push(p.headElement!, $.HEAD);
+            startTagInHead(p, token);
+            p.openElements.remove(p.headElement!);
+            break;
+        }
+        case $.HEAD: {
+            p._err(token, ERR.misplacedStartTagForHeadElement);
+            break;
+        }
+        default: {
+            tokenAfterHead(p, token);
+        }
     }
 }
 
@@ -1388,18 +1576,33 @@ function tokenAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
 // The "in body" insertion mode
 //------------------------------------------------------------------
 function modeInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER) {
-        characterInBody(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        whitespaceCharacterInBody(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInBody(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInBody(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER: {
+            characterInBody(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            whitespaceCharacterInBody(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInBody(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInBody(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -1680,17 +1883,14 @@ function selectStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     p._insertElement(token, NS.HTML);
     p.framesetOk = false;
 
-    if (
+    p.insertionMode =
         p.insertionMode === InsertionMode.IN_TABLE ||
         p.insertionMode === InsertionMode.IN_CAPTION ||
         p.insertionMode === InsertionMode.IN_TABLE_BODY ||
         p.insertionMode === InsertionMode.IN_ROW ||
         p.insertionMode === InsertionMode.IN_CELL
-    ) {
-        p.insertionMode = InsertionMode.IN_SELECT_IN_TABLE;
-    } else {
-        p.insertionMode = InsertionMode.IN_SELECT;
-    }
+            ? InsertionMode.IN_SELECT_IN_TABLE
+            : InsertionMode.IN_SELECT;
 }
 
 function optgroupStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
@@ -1756,136 +1956,217 @@ function genericStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token
 function startTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
     const tn = token.tagID;
 
-    if (
-        tn === $.I ||
-        tn === $.S ||
-        tn === $.B ||
-        tn === $.U ||
-        tn === $.EM ||
-        tn === $.TT ||
-        tn === $.BIG ||
-        tn === $.CODE ||
-        tn === $.FONT ||
-        tn === $.SMALL ||
-        tn === $.STRIKE ||
-        tn === $.STRONG
-    ) {
-        bStartTagInBody(p, token);
-    } else if (tn === $.A) {
-        aStartTagInBody(p, token);
-    } else if (isNumberedHeader(tn)) {
-        numberedHeaderStartTagInBody(p, token);
-    } else if (
-        tn === $.P ||
-        tn === $.DL ||
-        tn === $.OL ||
-        tn === $.UL ||
-        tn === $.DIV ||
-        tn === $.DIR ||
-        tn === $.NAV ||
-        tn === $.MAIN ||
-        tn === $.MENU ||
-        tn === $.ASIDE ||
-        tn === $.CENTER ||
-        tn === $.FIGURE ||
-        tn === $.FOOTER ||
-        tn === $.HEADER ||
-        tn === $.HGROUP ||
-        tn === $.DIALOG ||
-        tn === $.DETAILS ||
-        tn === $.ADDRESS ||
-        tn === $.ARTICLE ||
-        tn === $.SECTION ||
-        tn === $.SUMMARY ||
-        tn === $.FIELDSET ||
-        tn === $.BLOCKQUOTE ||
-        tn === $.FIGCAPTION
-    ) {
-        addressStartTagInBody(p, token);
-    } else if (tn === $.LI || tn === $.DD || tn === $.DT) {
-        listItemStartTagInBody(p, token);
-    } else if (tn === $.BR || tn === $.IMG || tn === $.WBR || tn === $.AREA || tn === $.EMBED || tn === $.KEYGEN) {
-        areaStartTagInBody(p, token);
-    } else if (tn === $.HR) {
-        hrStartTagInBody(p, token);
-    } else if (tn === $.RB || tn === $.RTC) {
-        rbStartTagInBody(p, token);
-    } else if (tn === $.RT || tn === $.RP) {
-        rtStartTagInBody(p, token);
-    } else if (tn === $.PRE || tn === $.LISTING) {
-        preStartTagInBody(p, token);
-    } else if (tn === $.XMP) {
-        xmpStartTagInBody(p, token);
-    } else if (tn === $.SVG) {
-        svgStartTagInBody(p, token);
-    } else if (tn === $.HTML) {
-        htmlStartTagInBody(p, token);
-    } else if (
-        tn === $.BASE ||
-        tn === $.LINK ||
-        tn === $.META ||
-        tn === $.STYLE ||
-        tn === $.TITLE ||
-        tn === $.SCRIPT ||
-        tn === $.BGSOUND ||
-        tn === $.BASEFONT ||
-        tn === $.TEMPLATE
-    ) {
-        startTagInHead(p, token);
-    } else if (tn === $.BODY) {
-        bodyStartTagInBody(p, token);
-    } else if (tn === $.FORM) {
-        formStartTagInBody(p, token);
-    } else if (tn === $.NOBR) {
-        nobrStartTagInBody(p, token);
-    } else if (tn === $.MATH) {
-        mathStartTagInBody(p, token);
-    } else if (tn === $.TABLE) {
-        tableStartTagInBody(p, token);
-    } else if (tn === $.INPUT) {
-        inputStartTagInBody(p, token);
-    } else if (tn === $.PARAM || tn === $.TRACK || tn === $.SOURCE) {
-        paramStartTagInBody(p, token);
-    } else if (tn === $.IMAGE) {
-        imageStartTagInBody(p, token);
-    } else if (tn === $.BUTTON) {
-        buttonStartTagInBody(p, token);
-    } else if (tn === $.APPLET || tn === $.OBJECT || tn === $.MARQUEE) {
-        appletStartTagInBody(p, token);
-    } else if (tn === $.IFRAME) {
-        iframeStartTagInBody(p, token);
-    } else if (tn === $.SELECT) {
-        selectStartTagInBody(p, token);
-    } else if (tn === $.OPTION || tn === $.OPTGROUP) {
-        optgroupStartTagInBody(p, token);
-    } else if (tn === $.NOEMBED) {
-        noembedStartTagInBody(p, token);
-    } else if (tn === $.FRAMESET) {
-        framesetStartTagInBody(p, token);
-    } else if (tn === $.TEXTAREA) {
-        textareaStartTagInBody(p, token);
-    } else if (tn === $.NOSCRIPT) {
-        if (p.options.scriptingEnabled) {
-            noembedStartTagInBody(p, token);
-        } else {
-            genericStartTagInBody(p, token);
+    switch (tn) {
+        case $.I:
+        case $.S:
+        case $.B:
+        case $.U:
+        case $.EM:
+        case $.TT:
+        case $.BIG:
+        case $.CODE:
+        case $.FONT:
+        case $.SMALL:
+        case $.STRIKE:
+        case $.STRONG: {
+            bStartTagInBody(p, token);
+            break;
         }
-    } else if (tn === $.PLAINTEXT) {
-        plaintextStartTagInBody(p, token);
-    } else if (
-        tn !== $.COL &&
-        tn !== $.TH &&
-        tn !== $.TD &&
-        tn !== $.TR &&
-        tn !== $.HEAD &&
-        tn !== $.FRAME &&
-        tn !== $.TBODY &&
-        tn !== $.TFOOT &&
-        tn !== $.THEAD &&
-        tn !== $.CAPTION &&
-        tn !== $.COLGROUP
-    ) {
-        genericStartTagInBody(p, token);
+        case $.A: {
+            aStartTagInBody(p, token);
+            break;
+        }
+        case $.H1:
+        case $.H2:
+        case $.H3:
+        case $.H4:
+        case $.H5:
+        case $.H6: {
+            numberedHeaderStartTagInBody(p, token);
+            break;
+        }
+        case $.P:
+        case $.DL:
+        case $.OL:
+        case $.UL:
+        case $.DIV:
+        case $.DIR:
+        case $.NAV:
+        case $.MAIN:
+        case $.MENU:
+        case $.ASIDE:
+        case $.CENTER:
+        case $.FIGURE:
+        case $.FOOTER:
+        case $.HEADER:
+        case $.HGROUP:
+        case $.DIALOG:
+        case $.DETAILS:
+        case $.ADDRESS:
+        case $.ARTICLE:
+        case $.SECTION:
+        case $.SUMMARY:
+        case $.FIELDSET:
+        case $.BLOCKQUOTE:
+        case $.FIGCAPTION: {
+            addressStartTagInBody(p, token);
+            break;
+        }
+        case $.LI:
+        case $.DD:
+        case $.DT: {
+            listItemStartTagInBody(p, token);
+            break;
+        }
+        case $.BR:
+        case $.IMG:
+        case $.WBR:
+        case $.AREA:
+        case $.EMBED:
+        case $.KEYGEN: {
+            areaStartTagInBody(p, token);
+            break;
+        }
+        case $.HR: {
+            hrStartTagInBody(p, token);
+            break;
+        }
+        case $.RB:
+        case $.RTC: {
+            rbStartTagInBody(p, token);
+            break;
+        }
+        case $.RT:
+        case $.RP: {
+            rtStartTagInBody(p, token);
+            break;
+        }
+        case $.PRE:
+        case $.LISTING: {
+            preStartTagInBody(p, token);
+            break;
+        }
+        case $.XMP: {
+            xmpStartTagInBody(p, token);
+            break;
+        }
+        case $.SVG: {
+            svgStartTagInBody(p, token);
+            break;
+        }
+        case $.HTML: {
+            htmlStartTagInBody(p, token);
+            break;
+        }
+        case $.BASE:
+        case $.LINK:
+        case $.META:
+        case $.STYLE:
+        case $.TITLE:
+        case $.SCRIPT:
+        case $.BGSOUND:
+        case $.BASEFONT:
+        case $.TEMPLATE: {
+            startTagInHead(p, token);
+            break;
+        }
+        case $.BODY: {
+            bodyStartTagInBody(p, token);
+            break;
+        }
+        case $.FORM: {
+            formStartTagInBody(p, token);
+            break;
+        }
+        case $.NOBR: {
+            nobrStartTagInBody(p, token);
+            break;
+        }
+        case $.MATH: {
+            mathStartTagInBody(p, token);
+            break;
+        }
+        case $.TABLE: {
+            tableStartTagInBody(p, token);
+            break;
+        }
+        case $.INPUT: {
+            inputStartTagInBody(p, token);
+            break;
+        }
+        case $.PARAM:
+        case $.TRACK:
+        case $.SOURCE: {
+            paramStartTagInBody(p, token);
+            break;
+        }
+        case $.IMAGE: {
+            imageStartTagInBody(p, token);
+            break;
+        }
+        case $.BUTTON: {
+            buttonStartTagInBody(p, token);
+            break;
+        }
+        case $.APPLET:
+        case $.OBJECT:
+        case $.MARQUEE: {
+            appletStartTagInBody(p, token);
+            break;
+        }
+        case $.IFRAME: {
+            iframeStartTagInBody(p, token);
+            break;
+        }
+        case $.SELECT: {
+            selectStartTagInBody(p, token);
+            break;
+        }
+        case $.OPTION:
+        case $.OPTGROUP: {
+            optgroupStartTagInBody(p, token);
+            break;
+        }
+        case $.NOEMBED: {
+            noembedStartTagInBody(p, token);
+            break;
+        }
+        case $.FRAMESET: {
+            framesetStartTagInBody(p, token);
+            break;
+        }
+        case $.TEXTAREA: {
+            textareaStartTagInBody(p, token);
+            break;
+        }
+        case $.NOSCRIPT: {
+            if (p.options.scriptingEnabled) {
+                noembedStartTagInBody(p, token);
+            } else {
+                genericStartTagInBody(p, token);
+            }
+            break;
+        }
+        case $.PLAINTEXT: {
+            plaintextStartTagInBody(p, token);
+            break;
+        }
+
+        case $.COL:
+        case $.TH:
+        case $.TD:
+        case $.TR:
+        case $.HEAD:
+        case $.FRAME:
+        case $.TBODY:
+        case $.TFOOT:
+        case $.THEAD:
+        case $.CAPTION:
+        case $.COLGROUP:
+            // Ignore
+            break;
+        default:
+            genericStartTagInBody(p, token);
     }
 }
 
@@ -1999,75 +2280,103 @@ function genericEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 }
 
 function endTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (
-        tn === $.A ||
-        tn === $.B ||
-        tn === $.I ||
-        tn === $.S ||
-        tn === $.U ||
-        tn === $.EM ||
-        tn === $.TT ||
-        tn === $.BIG ||
-        tn === $.CODE ||
-        tn === $.FONT ||
-        tn === $.NOBR ||
-        tn === $.SMALL ||
-        tn === $.STRIKE ||
-        tn === $.STRONG
-    ) {
-        callAdoptionAgency(p, token);
-    } else if (tn === $.P) {
-        pEndTagInBody(p);
-    } else if (
-        tn === $.DL ||
-        tn === $.UL ||
-        tn === $.OL ||
-        tn === $.DIR ||
-        tn === $.DIV ||
-        tn === $.NAV ||
-        tn === $.PRE ||
-        tn === $.MAIN ||
-        tn === $.MENU ||
-        tn === $.ASIDE ||
-        tn === $.CENTER ||
-        tn === $.FIGURE ||
-        tn === $.FOOTER ||
-        tn === $.HEADER ||
-        tn === $.HGROUP ||
-        tn === $.DIALOG ||
-        tn === $.ADDRESS ||
-        tn === $.ARTICLE ||
-        tn === $.DETAILS ||
-        tn === $.SECTION ||
-        tn === $.SUMMARY ||
-        tn === $.LISTING ||
-        tn === $.FIELDSET ||
-        tn === $.BLOCKQUOTE ||
-        tn === $.FIGCAPTION
-    ) {
-        addressEndTagInBody(p, token);
-    } else if (tn === $.LI) {
-        liEndTagInBody(p);
-    } else if (tn === $.DD || tn === $.DT) {
-        ddEndTagInBody(p, token);
-    } else if (isNumberedHeader(tn)) {
-        numberedHeaderEndTagInBody(p);
-    } else if (tn === $.BR) {
-        brEndTagInBody(p);
-    } else if (tn === $.BODY) {
-        bodyEndTagInBody(p);
-    } else if (tn === $.HTML) {
-        htmlEndTagInBody(p, token);
-    } else if (tn === $.FORM) {
-        formEndTagInBody(p);
-    } else if (tn === $.APPLET || tn === $.OBJECT || tn === $.MARQUEE) {
-        appletEndTagInBody(p, token);
-    } else if (tn === $.TEMPLATE) {
-        endTagInHead(p, token);
-    } else {
-        genericEndTagInBody(p, token);
+    switch (token.tagID) {
+        case $.A:
+        case $.B:
+        case $.I:
+        case $.S:
+        case $.U:
+        case $.EM:
+        case $.TT:
+        case $.BIG:
+        case $.CODE:
+        case $.FONT:
+        case $.NOBR:
+        case $.SMALL:
+        case $.STRIKE:
+        case $.STRONG: {
+            callAdoptionAgency(p, token);
+            break;
+        }
+        case $.P: {
+            pEndTagInBody(p);
+            break;
+        }
+        case $.DL:
+        case $.UL:
+        case $.OL:
+        case $.DIR:
+        case $.DIV:
+        case $.NAV:
+        case $.PRE:
+        case $.MAIN:
+        case $.MENU:
+        case $.ASIDE:
+        case $.CENTER:
+        case $.FIGURE:
+        case $.FOOTER:
+        case $.HEADER:
+        case $.HGROUP:
+        case $.DIALOG:
+        case $.ADDRESS:
+        case $.ARTICLE:
+        case $.DETAILS:
+        case $.SECTION:
+        case $.SUMMARY:
+        case $.LISTING:
+        case $.FIELDSET:
+        case $.BLOCKQUOTE:
+        case $.FIGCAPTION: {
+            addressEndTagInBody(p, token);
+            break;
+        }
+        case $.LI: {
+            liEndTagInBody(p);
+            break;
+        }
+        case $.DD:
+        case $.DT: {
+            ddEndTagInBody(p, token);
+            break;
+        }
+        case $.H1:
+        case $.H2:
+        case $.H3:
+        case $.H4:
+        case $.H5:
+        case $.H6: {
+            numberedHeaderEndTagInBody(p);
+            break;
+        }
+        case $.BR: {
+            brEndTagInBody(p);
+            break;
+        }
+        case $.BODY: {
+            bodyEndTagInBody(p);
+            break;
+        }
+        case $.HTML: {
+            htmlEndTagInBody(p, token);
+            break;
+        }
+        case $.FORM: {
+            formEndTagInBody(p);
+            break;
+        }
+        case $.APPLET:
+        case $.OBJECT:
+        case $.MARQUEE: {
+            appletEndTagInBody(p, token);
+            break;
+        }
+        case $.TEMPLATE: {
+            endTagInHead(p, token);
+            break;
+        }
+        default: {
+            genericEndTagInBody(p, token);
+        }
     }
 }
 
@@ -2082,16 +2391,23 @@ function eofInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken) 
 // The "text" insertion mode
 //------------------------------------------------------------------
 function modeText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === TokenType.CHARACTER ||
-        token.type === TokenType.NULL_CHARACTER ||
-        token.type === TokenType.WHITESPACE_CHARACTER
-    ) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInText(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInText(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInText(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInText(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2114,20 +2430,31 @@ function eofInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken) 
 // The "in table" insertion mode
 //------------------------------------------------------------------
 function modeInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === TokenType.CHARACTER ||
-        token.type === TokenType.NULL_CHARACTER ||
-        token.type === TokenType.WHITESPACE_CHARACTER
-    ) {
-        characterInTable(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInTable(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInTable(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.WHITESPACE_CHARACTER: {
+            characterInTable(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInTable(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInTable(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2203,28 +2530,52 @@ function formStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 }
 
 function startTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.TD || tn === $.TH || tn === $.TR) {
-        tdStartTagInTable(p, token);
-    } else if (tn === $.STYLE || tn === $.SCRIPT || tn === $.TEMPLATE) {
-        startTagInHead(p, token);
-    } else if (tn === $.COL) {
-        colStartTagInTable(p, token);
-    } else if (tn === $.FORM) {
-        formStartTagInTable(p, token);
-    } else if (tn === $.TABLE) {
-        tableStartTagInTable(p, token);
-    } else if (tn === $.TBODY || tn === $.TFOOT || tn === $.THEAD) {
-        tbodyStartTagInTable(p, token);
-    } else if (tn === $.INPUT) {
-        inputStartTagInTable(p, token);
-    } else if (tn === $.CAPTION) {
-        captionStartTagInTable(p, token);
-    } else if (tn === $.COLGROUP) {
-        colgroupStartTagInTable(p, token);
-    } else {
-        tokenInTable(p, token);
+    switch (token.tagID) {
+        case $.TD:
+        case $.TH:
+        case $.TR: {
+            tdStartTagInTable(p, token);
+            break;
+        }
+        case $.STYLE:
+        case $.SCRIPT:
+        case $.TEMPLATE: {
+            startTagInHead(p, token);
+            break;
+        }
+        case $.COL: {
+            colStartTagInTable(p, token);
+            break;
+        }
+        case $.FORM: {
+            formStartTagInTable(p, token);
+            break;
+        }
+        case $.TABLE: {
+            tableStartTagInTable(p, token);
+            break;
+        }
+        case $.TBODY:
+        case $.TFOOT:
+        case $.THEAD: {
+            tbodyStartTagInTable(p, token);
+            break;
+        }
+        case $.INPUT: {
+            inputStartTagInTable(p, token);
+            break;
+        }
+        case $.CAPTION: {
+            captionStartTagInTable(p, token);
+            break;
+        }
+        case $.COLGROUP: {
+            colgroupStartTagInTable(p, token);
+            break;
+        }
+        default: {
+            tokenInTable(p, token);
+        }
     }
 }
 
@@ -2305,18 +2656,33 @@ function tokenInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tok
 // The "in caption" insertion mode
 //------------------------------------------------------------------
 function modeInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER) {
-        characterInBody(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        whitespaceCharacterInBody(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInCaption(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInCaption(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER: {
+            characterInBody(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            whitespaceCharacterInBody(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInCaption(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInCaption(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2371,33 +2737,55 @@ function endTagInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
 // The "in column group" insertion mode
 //------------------------------------------------------------------
 function modeInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER) {
-        tokenInColumnGroup(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInColumnGroup(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInColumnGroup(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER: {
+            tokenInColumnGroup(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInColumnGroup(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInColumnGroup(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
 function startTagInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.HTML) {
-        startTagInBody(p, token);
-    } else if (tn === $.COL) {
-        p._appendElement(token, NS.HTML);
-        token.ackSelfClosing = true;
-    } else if (tn === $.TEMPLATE) {
-        startTagInHead(p, token);
-    } else {
-        tokenInColumnGroup(p, token);
+    switch (token.tagID) {
+        case $.HTML: {
+            startTagInBody(p, token);
+            break;
+        }
+        case $.COL: {
+            p._appendElement(token, NS.HTML);
+            token.ackSelfClosing = true;
+            break;
+        }
+        case $.TEMPLATE: {
+            startTagInHead(p, token);
+            break;
+        }
+        default: {
+            tokenInColumnGroup(p, token);
+        }
     }
 }
 
@@ -2427,51 +2815,67 @@ function tokenInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 // The "in table body" insertion mode
 //------------------------------------------------------------------
 function modeInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === TokenType.CHARACTER ||
-        token.type === TokenType.NULL_CHARACTER ||
-        token.type === TokenType.WHITESPACE_CHARACTER
-    ) {
-        characterInTable(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInTableBody(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInTableBody(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.WHITESPACE_CHARACTER: {
+            characterInTable(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInTableBody(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInTableBody(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
 function startTagInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.TR) {
-        p.openElements.clearBackToTableBodyContext();
-        p._insertElement(token, NS.HTML);
-        p.insertionMode = InsertionMode.IN_ROW;
-    } else if (tn === $.TH || tn === $.TD) {
-        p.openElements.clearBackToTableBodyContext();
-        p._insertFakeElement(TN.TR, $.TR);
-        p.insertionMode = InsertionMode.IN_ROW;
-        modeInRow(p, token);
-    } else if (
-        tn === $.CAPTION ||
-        tn === $.COL ||
-        tn === $.COLGROUP ||
-        tn === $.TBODY ||
-        tn === $.TFOOT ||
-        tn === $.THEAD
-    ) {
-        if (p.openElements.hasTableBodyContextInTableScope()) {
+    switch (token.tagID) {
+        case $.TR: {
             p.openElements.clearBackToTableBodyContext();
-            p.openElements.pop();
-            p.insertionMode = InsertionMode.IN_TABLE;
-            modeInTable(p, token);
+            p._insertElement(token, NS.HTML);
+            p.insertionMode = InsertionMode.IN_ROW;
+            break;
         }
-    } else {
-        startTagInTable(p, token);
+        case $.TH:
+        case $.TD: {
+            p.openElements.clearBackToTableBodyContext();
+            p._insertFakeElement(TN.TR, $.TR);
+            p.insertionMode = InsertionMode.IN_ROW;
+            modeInRow(p, token);
+            break;
+        }
+        case $.CAPTION:
+        case $.COL:
+        case $.COLGROUP:
+        case $.TBODY:
+        case $.TFOOT:
+        case $.THEAD: {
+            if (p.openElements.hasTableBodyContextInTableScope()) {
+                p.openElements.clearBackToTableBodyContext();
+                p.openElements.pop();
+                p.insertionMode = InsertionMode.IN_TABLE;
+                modeInTable(p, token);
+            }
+            break;
+        }
+        default: {
+            startTagInTable(p, token);
+        }
     }
 }
 
@@ -2508,20 +2912,31 @@ function endTagInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
 // The "in row" insertion mode
 //------------------------------------------------------------------
 function modeInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === TokenType.CHARACTER ||
-        token.type === TokenType.NULL_CHARACTER ||
-        token.type === TokenType.WHITESPACE_CHARACTER
-    ) {
-        characterInTable(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInRow(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInRow(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.WHITESPACE_CHARACTER: {
+            characterInTable(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInRow(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInRow(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2554,56 +2969,80 @@ function startTagInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTok
 }
 
 function endTagInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.TR) {
-        if (p.openElements.hasInTableScope($.TR)) {
-            p.openElements.clearBackToTableRowContext();
-            p.openElements.pop();
-            p.insertionMode = InsertionMode.IN_TABLE_BODY;
+    switch (token.tagID) {
+        case $.TR: {
+            if (p.openElements.hasInTableScope($.TR)) {
+                p.openElements.clearBackToTableRowContext();
+                p.openElements.pop();
+                p.insertionMode = InsertionMode.IN_TABLE_BODY;
+            }
+            break;
         }
-    } else if (tn === $.TABLE) {
-        if (p.openElements.hasInTableScope($.TR)) {
-            p.openElements.clearBackToTableRowContext();
-            p.openElements.pop();
-            p.insertionMode = InsertionMode.IN_TABLE_BODY;
-            modeInTableBody(p, token);
+        case $.TABLE: {
+            if (p.openElements.hasInTableScope($.TR)) {
+                p.openElements.clearBackToTableRowContext();
+                p.openElements.pop();
+                p.insertionMode = InsertionMode.IN_TABLE_BODY;
+                modeInTableBody(p, token);
+            }
+            break;
         }
-    } else if (tn === $.TBODY || tn === $.TFOOT || tn === $.THEAD) {
-        if (p.openElements.hasInTableScope(tn) || p.openElements.hasInTableScope($.TR)) {
-            p.openElements.clearBackToTableRowContext();
-            p.openElements.pop();
-            p.insertionMode = InsertionMode.IN_TABLE_BODY;
-            modeInTableBody(p, token);
+        case $.TBODY:
+        case $.TFOOT:
+        case $.THEAD: {
+            if (p.openElements.hasInTableScope(token.tagID) || p.openElements.hasInTableScope($.TR)) {
+                p.openElements.clearBackToTableRowContext();
+                p.openElements.pop();
+                p.insertionMode = InsertionMode.IN_TABLE_BODY;
+                modeInTableBody(p, token);
+            }
+            break;
         }
-    } else if (
-        tn !== $.BODY &&
-        tn !== $.CAPTION &&
-        tn !== $.COL &&
-        tn !== $.COLGROUP &&
-        tn !== $.HTML &&
-        tn !== $.TD &&
-        tn !== $.TH
-    ) {
-        endTagInTable(p, token);
+        case $.BODY:
+        case $.CAPTION:
+        case $.COL:
+        case $.COLGROUP:
+        case $.HTML:
+        case $.TD:
+        case $.TH: {
+            // Ignore end tag
+            break;
+        }
+        default:
+            endTagInTable(p, token);
     }
 }
 
 // The "in cell" insertion mode
 //------------------------------------------------------------------
 function modeInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER) {
-        characterInBody(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        whitespaceCharacterInBody(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInCell(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInCell(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER: {
+            characterInBody(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            whitespaceCharacterInBody(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInCell(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInCell(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2643,51 +3082,80 @@ function endTagInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
 // The "in select" insertion mode
 //------------------------------------------------------------------
 function modeInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInSelect(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInSelect(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInSelect(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInSelect(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
 function startTagInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.HTML) {
-        startTagInBody(p, token);
-    } else if (tn === $.OPTION) {
-        if (p.openElements.currentTagId === $.OPTION) {
-            p.openElements.pop();
+    switch (token.tagID) {
+        case $.HTML: {
+            startTagInBody(p, token);
+            break;
         }
-
-        p._insertElement(token, NS.HTML);
-    } else if (tn === $.OPTGROUP) {
-        if (p.openElements.currentTagId === $.OPTION) {
-            p.openElements.pop();
-        }
-
-        if (p.openElements.currentTagId === $.OPTGROUP) {
-            p.openElements.pop();
-        }
-
-        p._insertElement(token, NS.HTML);
-    } else if (tn === $.INPUT || tn === $.KEYGEN || tn === $.TEXTAREA || tn === $.SELECT) {
-        if (p.openElements.hasInSelectScope($.SELECT)) {
-            p.openElements.popUntilTagNamePopped($.SELECT);
-            p._resetInsertionMode();
-
-            if (tn !== $.SELECT) {
-                p._processToken(token);
+        case $.OPTION: {
+            if (p.openElements.currentTagId === $.OPTION) {
+                p.openElements.pop();
             }
+
+            p._insertElement(token, NS.HTML);
+            break;
         }
-    } else if (tn === $.SCRIPT || tn === $.TEMPLATE) {
-        startTagInHead(p, token);
+        case $.OPTGROUP: {
+            if (p.openElements.currentTagId === $.OPTION) {
+                p.openElements.pop();
+            }
+
+            if (p.openElements.currentTagId === $.OPTGROUP) {
+                p.openElements.pop();
+            }
+
+            p._insertElement(token, NS.HTML);
+            break;
+        }
+        case $.INPUT:
+        case $.KEYGEN:
+        case $.TEXTAREA:
+        case $.SELECT: {
+            if (p.openElements.hasInSelectScope($.SELECT)) {
+                p.openElements.popUntilTagNamePopped($.SELECT);
+                p._resetInsertionMode();
+
+                if (token.tagID !== $.SELECT) {
+                    p._processToken(token);
+                }
+            }
+            break;
+        }
+        case $.SCRIPT:
+        case $.TEMPLATE: {
+            startTagInHead(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2721,16 +3189,30 @@ function endTagInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
 // The "in select in table" insertion mode
 //------------------------------------------------------------------
 function modeInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInSelectInTable(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInSelectInTable(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInBody(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInSelectInTable(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInSelectInTable(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInBody(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2781,18 +3263,33 @@ function endTagInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token
 // The "in template" insertion mode
 //------------------------------------------------------------------
 function modeInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER) {
-        characterInBody(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        whitespaceCharacterInBody(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInTemplate(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInTemplate(p, token);
-    } else if (token.type === TokenType.EOF) {
-        eofInTemplate(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER: {
+            characterInBody(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            whitespaceCharacterInBody(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInTemplate(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInTemplate(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            eofInTemplate(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2866,18 +3363,34 @@ function eofInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFTok
 // The "after body" insertion mode
 //------------------------------------------------------------------
 function modeAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.CHARACTER || token.type === TokenType.NULL_CHARACTER) {
-        tokenAfterBody(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        whitespaceCharacterInBody(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendCommentToRootHtmlElement(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagAfterBody(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagAfterBody(p, token);
-    } else if (token.type === TokenType.EOF) {
-        stopParsing(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER: {
+            tokenAfterBody(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            whitespaceCharacterInBody(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendCommentToRootHtmlElement(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagAfterBody(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagAfterBody(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            stopParsing(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2907,31 +3420,53 @@ function tokenAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
 // The "in frameset" insertion mode
 //------------------------------------------------------------------
 function modeInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagInFrameset(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagInFrameset(p, token);
-    } else if (token.type === TokenType.EOF) {
-        stopParsing(p, token);
+    switch (token.type) {
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagInFrameset(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagInFrameset(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            stopParsing(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
 function startTagInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken) {
-    const tn = token.tagID;
-
-    if (tn === $.HTML) {
-        startTagInBody(p, token);
-    } else if (tn === $.FRAMESET) {
-        p._insertElement(token, NS.HTML);
-    } else if (tn === $.FRAME) {
-        p._appendElement(token, NS.HTML);
-        token.ackSelfClosing = true;
-    } else if (tn === $.NOFRAMES) {
-        startTagInHead(p, token);
+    switch (token.tagID) {
+        case $.HTML: {
+            startTagInBody(p, token);
+            break;
+        }
+        case $.FRAMESET: {
+            p._insertElement(token, NS.HTML);
+            break;
+        }
+        case $.FRAME: {
+            p._appendElement(token, NS.HTML);
+            token.ackSelfClosing = true;
+            break;
+        }
+        case $.NOFRAMES: {
+            startTagInHead(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2948,16 +3483,29 @@ function endTagInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
 // The "after frameset" insertion mode
 //------------------------------------------------------------------
 function modeAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        p._insertCharacters(token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendComment(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagAfterFrameset(p, token);
-    } else if (token.type === TokenType.END_TAG) {
-        endTagAfterFrameset(p, token);
-    } else if (token.type === TokenType.EOF) {
-        stopParsing(p, token);
+    switch (token.type) {
+        case TokenType.WHITESPACE_CHARACTER: {
+            p._insertCharacters(token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendComment(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagAfterFrameset(p, token);
+            break;
+        }
+        case TokenType.END_TAG: {
+            endTagAfterFrameset(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            stopParsing(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -2980,20 +3528,31 @@ function endTagAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 // The "after after body" insertion mode
 //------------------------------------------------------------------
 function modeAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (
-        token.type === TokenType.CHARACTER ||
-        token.type === TokenType.NULL_CHARACTER ||
-        token.type === TokenType.END_TAG
-    ) {
-        tokenAfterAfterBody(p, token);
-    } else if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        whitespaceCharacterInBody(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendCommentToDocument(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagAfterAfterBody(p, token);
-    } else if (token.type === TokenType.EOF) {
-        stopParsing(p, token);
+    switch (token.type) {
+        case TokenType.CHARACTER:
+        case TokenType.NULL_CHARACTER:
+        case TokenType.END_TAG: {
+            tokenAfterAfterBody(p, token);
+            break;
+        }
+        case TokenType.WHITESPACE_CHARACTER: {
+            whitespaceCharacterInBody(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendCommentToDocument(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagAfterAfterBody(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            stopParsing(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 
@@ -3013,14 +3572,25 @@ function tokenAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 // The "after after frameset" insertion mode
 //------------------------------------------------------------------
 function modeAfterAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token) {
-    if (token.type === TokenType.WHITESPACE_CHARACTER) {
-        whitespaceCharacterInBody(p, token);
-    } else if (token.type === TokenType.COMMENT) {
-        appendCommentToDocument(p, token);
-    } else if (token.type === TokenType.START_TAG) {
-        startTagAfterAfterFrameset(p, token);
-    } else if (token.type === TokenType.EOF) {
-        stopParsing(p, token);
+    switch (token.type) {
+        case TokenType.WHITESPACE_CHARACTER: {
+            whitespaceCharacterInBody(p, token);
+            break;
+        }
+        case TokenType.COMMENT: {
+            appendCommentToDocument(p, token);
+            break;
+        }
+        case TokenType.START_TAG: {
+            startTagAfterAfterFrameset(p, token);
+            break;
+        }
+        case TokenType.EOF: {
+            stopParsing(p, token);
+            break;
+        }
+        default:
+        // Do nothing
     }
 }
 

@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises';
+import { readFile } from 'node:fs/promises';
 import format from 'human-format';
 import promisifyEvent from 'promisify-event';
 import memwatch from '@airbnb/node-memwatch';
@@ -63,8 +63,8 @@ function getDuration(startDate, endDate) {
 
 function printResults(parsedDataSize, startDate, endDate, heapDiff, maxMemUsage) {
     console.log('Input data size:', format(parsedDataSize, { unit: 'B' }));
-    console.log('Duration: ', getDuration(startDate, endDate));
-    console.log('Memory before: ', heapDiff.before.size);
-    console.log('Memory after: ', heapDiff.after.size);
-    console.log('Memory max: ', format(maxMemUsage, { unit: 'B' }));
+    console.log('Duration:', getDuration(startDate, endDate));
+    console.log('Memory before:', heapDiff.before.size);
+    console.log('Memory after:', heapDiff.after.size);
+    console.log('Memory max:', format(maxMemUsage, { unit: 'B' }));
 }

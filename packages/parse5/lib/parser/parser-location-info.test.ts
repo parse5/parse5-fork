@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import * as assert from 'node:assert';
 import dedent from 'dedent';
 import * as parse5 from '../index.js';
 import {
@@ -92,11 +92,11 @@ generateTestsForEachTreeAdapter('location-info-parser', (treeAdapter) => {
 
     test('Regression - location line incorrect when a character is unconsumed (GH-151)', () => {
         const html = dedent`
-            <html><body><script>
-              var x = window.scrollY <
-                  100;
-            </script>
-            </body></html>
+          <html><body><script>
+            var x = window.scrollY <
+                100;
+          </script>
+          </body></html>
         `;
 
         const opts = {
@@ -138,22 +138,21 @@ describe('location-info-parser', () => {
     it('Updating node source code location (GH-314)', () => {
         const sourceCodeLocationSetter = {
             setNodeSourceCodeLocation(node: any, location: any) {
-                if (location === null) {
-                    node.sourceCodeLocation = null;
-                } else {
-                    node.sourceCodeLocation = {
-                        start: {
-                            line: location.startLine,
-                            column: location.startCol,
-                            offset: location.startOffset,
-                        },
-                        end: {
-                            line: location.endLine,
-                            column: location.endCol,
-                            offset: location.endOffset,
-                        },
-                    };
-                }
+                node.sourceCodeLocation =
+                    location === null
+                        ? null
+                        : {
+                              start: {
+                                  line: location.startLine,
+                                  column: location.startCol,
+                                  offset: location.startOffset,
+                              },
+                              end: {
+                                  line: location.endLine,
+                                  column: location.endCol,
+                                  offset: location.endOffset,
+                              },
+                          };
             },
             updateNodeSourceCodeLocation(node: any, endLocation: any) {
                 node.sourceCodeLocation = {

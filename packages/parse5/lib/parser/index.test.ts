@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import * as assert from 'node:assert';
 import * as parse5 from '../index.js';
 import { Parser } from './index.js';
 import { generateParsingTests } from '@parse5/test-utils/utils/generate-parsing-tests.js';

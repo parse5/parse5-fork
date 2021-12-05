@@ -1,5 +1,5 @@
-import * as assert from 'assert';
-import * as fs from 'fs';
+import * as assert from 'node:assert';
+import * as fs from 'node:fs';
 import { SAXParser, SAXParserOptions } from '../lib/index.js';
 import { loadSAXParserTestData } from '@parse5/test-utils/utils/load-sax-parser-test-data.js';
 import {
@@ -72,9 +72,8 @@ const hugePage = new URL('../../test-utils/data/huge-page/huge-page.html', impor
 
 describe('SAX parser', () => {
     //Basic tests
-    loadSAXParserTestData().forEach((data, idx) =>
-        it(`${idx + 1}.${data.name}`, createBasicTest(data.src, data.expected))
-    );
+    for (const [idx, data] of loadSAXParserTestData().entries())
+        it(`${idx + 1}.${data.name}`, createBasicTest(data.src, data.expected));
 
     it('Piping and .stop()', (done) => {
         const parser = new SAXParser();
