@@ -1,4 +1,4 @@
-import { Writable } from 'stream';
+import { Writable } from 'node:stream';
 import { Parser, ParserOptions } from 'parse5/lib/parser/index.js';
 import type { TreeAdapterTypeMap } from 'parse5/lib/tree-adapters/interface.js';
 import type { DefaultTreeAdapterMap } from 'parse5/lib/tree-adapters/default.js';
@@ -74,7 +74,7 @@ export class ParserStream<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap> 
             throw new Error('Parser was already resumed');
         }
 
-        while (this.pendingHtmlInsertions.length) {
+        while (this.pendingHtmlInsertions.length > 0) {
             const html = this.pendingHtmlInsertions.pop()!;
 
             this.parser.tokenizer.insertHtmlAtCurrentPos(html);

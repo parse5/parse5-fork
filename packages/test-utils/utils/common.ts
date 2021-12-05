@@ -1,5 +1,5 @@
-import { Writable } from 'stream';
-import * as assert from 'assert';
+import { Writable } from 'node:stream';
+import * as assert from 'node:assert';
 import type { TreeAdapter } from 'parse5/lib/tree-adapters/interface';
 import * as defaultTreeAdapter from 'parse5/lib/tree-adapters/default.js';
 import * as htmlTreeAdapter from '@parse5/htmlparser2-tree-adapter/lib/index.js';
@@ -29,7 +29,7 @@ function getRandomChunkSize(min = 1, max = 10): number {
 }
 
 export function makeChunks(str: string, minSize?: number, maxSize?: number): string[] {
-    if (!str.length) {
+    if (str.length === 0) {
         return [''];
     }
 
@@ -74,24 +74,24 @@ export function writeChunkedToStream(str: string, stream: Writable): void {
     const chunks = makeChunks(str);
     const lastChunkIdx = chunks.length - 1;
 
-    chunks.forEach((chunk, idx) => {
+    for (const [idx, chunk] of chunks.entries()) {
         if (idx === lastChunkIdx) {
             stream.end(chunk);
         } else {
             stream.write(chunk);
         }
-    });
+    }
 }
 
 export function generateTestsForEachTreeAdapter(name: string, ctor: (adapter: TreeAdapter) => void): void {
     describe(name, () => {
-        Object.keys(treeAdapters).forEach((adapterName) => {
+        for (const adapterName of Object.keys(treeAdapters)) {
             const adapter = treeAdapters[adapterName as keyof typeof treeAdapters] as TreeAdapter;
 
             describe(`Tree adapter: ${adapterName}`, () => {
                 ctor(adapter);
             });
-        });
+        }
     });
 }
 

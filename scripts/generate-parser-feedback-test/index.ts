@@ -1,5 +1,5 @@
-import { readFile, writeFile } from 'fs/promises';
-import { basename } from 'path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { Parser } from '../../packages/parse5/lib/parser/index.js';
 import * as defaultTreeAdapter from '../../packages/parse5/lib/tree-adapters/default.js';
 import { convertTokenToHtml5Lib } from '@parse5/test-utils/utils/generate-tokenization-tests.js';
@@ -50,7 +50,7 @@ function collectParserTokens(html: string) {
         // NOTE: Needed to split attributes of duplicate <html> and <body>
         // which are otherwise merged as per tree constructor spec
         if (token.type === TokenType.START_TAG) {
-            token.attrs = token.attrs.slice();
+            token.attrs = [...token.attrs];
         }
 
         appendToken(tokens, token);
@@ -58,7 +58,7 @@ function collectParserTokens(html: string) {
 
     parser.parse(html);
 
-    return tokens.map(convertTokenToHtml5Lib);
+    return tokens.map((token) => convertTokenToHtml5Lib(token));
 }
 
 function generateParserFeedbackTest(parserTestFile: string) {

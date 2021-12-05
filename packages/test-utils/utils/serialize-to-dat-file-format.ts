@@ -27,7 +27,7 @@ function serializeNodeList<T extends TreeAdapterTypeMap>(
 ): string {
     let str = '';
 
-    nodes.forEach((node) => {
+    for (let node of nodes) {
         str += getSerializedTreeIndent(indent);
 
         if (treeAdapter.isCommentNode(node)) {
@@ -73,7 +73,7 @@ function serializeNodeList<T extends TreeAdapterTypeMap>(
 
             str += serializeNodeList(treeAdapter.getChildNodes(node), childrenIndent, treeAdapter);
         }
-    });
+    }
 
     return str;
 }

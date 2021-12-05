@@ -1,6 +1,6 @@
-import * as assert from 'assert';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as assert from 'node:assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { Tokenizer, TokenizerMode } from 'parse5/lib/tokenizer/index.js';
 import { makeChunks } from './common.js';
 import { TokenType, Token } from 'parse5/lib/common/token.js';
@@ -99,7 +99,7 @@ function tokenize(
 }
 
 function unicodeUnescape(str: string): string {
-    return str.replace(/\\[uU]\w{4}/g, (match: string) => String.fromCharCode(parseInt(match.slice(2), 16)));
+    return str.replace(/\\[Uu]\w{4}/g, (match: string) => String.fromCharCode(Number.parseInt(match.slice(2), 16)));
 }
 
 function unescapeDescrIO(testDescr: TestDescription): void {
@@ -130,7 +130,7 @@ function appendTokenEntry(result: HtmlLibToken[], tokenEntry: HtmlLibToken): voi
 function concatCharacterTokens(tokenEntries: HtmlLibToken[]): HtmlLibToken[] {
     const result: HtmlLibToken[] = [];
 
-    tokenEntries.forEach((tokenEntry) => appendTokenEntry(result, tokenEntry));
+    for (const tokenEntry of tokenEntries) appendTokenEntry(result, tokenEntry);
 
     return result;
 }
@@ -168,23 +168,23 @@ function loadTests(dataDirPath: string): LoadedTest[] {
     const tests: LoadedTest[] = [];
     let testIdx = 0;
 
-    testSetFileNames.forEach((fileName) => {
+    for (const fileName of testSetFileNames) {
         if (path.extname(fileName) !== '.test') {
-            return;
+            continue;
         }
 
         const filePath = path.join(dataDirPath, fileName);
         const testSetJson = fs.readFileSync(filePath).toString();
         const testSet = JSON.parse(testSetJson);
-        const testDescrs = testSet.tests;
+        const testDescrs: TestDescription[] = testSet.tests;
 
         if (!testDescrs) {
-            return;
+            continue;
         }
 
         const setName = fileName.replace('.test', '');
 
-        testDescrs.forEach((descr: TestDescription) => {
+        for (const descr of testDescrs) {
             if (!descr.initialStates) {
                 descr.initialStates = ['Data state'];
             }
@@ -195,7 +195,7 @@ function loadTests(dataDirPath: string): LoadedTest[] {
 
             const expected = descr.output;
 
-            descr.initialStates.forEach((initialState: string) => {
+            for (const initialState of descr.initialStates) {
                 tests.push({
                     idx: ++testIdx,
                     setName,
@@ -206,9 +206,9 @@ function loadTests(dataDirPath: string): LoadedTest[] {
                     lastStartTag: descr.lastStartTag,
                     expectedErrors: descr.errors || [],
                 });
-            });
-        });
-    });
+            }
+        }
+    }
 
     return tests;
 }
@@ -219,7 +219,7 @@ export function generateTokenizationTests(
     testSuite: string,
     createTokenSource: TokenSourceCreator
 ): void {
-    loadTests(testSuite).forEach((testData) => {
+    for (const testData of loadTests(testSuite)) {
         const testName = `${prefix} - ${testData.idx}.${testData.setName} - ${testData.name} - Initial state: ${testData.initialState}`;
 
         it(testName, () => {
@@ -234,5 +234,5 @@ export function generateTokenizationTests(
             assert.deepEqual(result.tokens, testData.expected, `Chunks: ${JSON.stringify(chunks)}`);
             assert.deepEqual(result.errors, testData.expectedErrors || []);
         });
-    });
+    }
 }

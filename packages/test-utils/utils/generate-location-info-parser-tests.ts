@@ -1,9 +1,9 @@
 import { ParserOptions } from 'parse5/lib/parser/index';
 import { Location, ElementLocation } from 'parse5/lib/common/token';
 import { TreeAdapter, TreeAdapterTypeMap } from 'parse5/lib/tree-adapters/interface';
-import * as assert from 'assert';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as assert from 'node:assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { escapeString } from 'parse5/lib/serializer/index.js';
 import * as parse5 from 'parse5/lib/index.js';
 import {
@@ -19,7 +19,7 @@ function walkTree<T extends TreeAdapterTypeMap>(
     treeAdapter: TreeAdapter<T>,
     handler: (node: T['node']) => void
 ) {
-    const stack = treeAdapter.getChildNodes(document).slice();
+    const stack = [...treeAdapter.getChildNodes(document)];
     let node;
     while ((node = stack.shift())) {
         const children = treeAdapter.getChildNodes(node);
@@ -108,7 +108,7 @@ export function generateLocationInfoParserTests(
     parse: (html: string, opts: ParserOptions<TreeAdapterTypeMap>) => { node: TreeAdapterTypeMap['node'] }
 ) {
     generateTestsForEachTreeAdapter(name, (treeAdapter) => {
-        loadParserLocationInfoTestData().forEach((test) => {
+        for (const test of loadParserLocationInfoTestData()) {
             //NOTE: How it works: we parse document with the location info.
             //Then for each node in the tree we run serializer and compare results with the substring
             //obtained via location info from the expected serialization results.
@@ -153,6 +153,6 @@ export function generateLocationInfoParserTests(
                     }
                 });
             });
-        });
+        }
     });
 }

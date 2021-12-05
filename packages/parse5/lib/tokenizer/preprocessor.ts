@@ -112,7 +112,7 @@ export class Preprocessor {
     }
 
     public write(chunk: string, isLastChunk: boolean): void {
-        if (this.html.length !== 0) {
+        if (this.html.length > 0) {
             this.html += chunk;
         } else {
             this.html = chunk;
@@ -180,7 +180,7 @@ export class Preprocessor {
             (cp > 0x1f && cp < 0x7f) ||
             cp === $.LINE_FEED ||
             cp === $.CARRIAGE_RETURN ||
-            (cp > 0x9f && cp < 0xfdd0);
+            (cp > 0x9f && cp < 0xfd_d0);
 
         if (!isCommonValidRange) {
             this._checkForProblematicCharacters(cp);

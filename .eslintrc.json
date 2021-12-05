@@ -4,7 +4,7 @@
         "node": true,
         "jest": true
     },
-    "extends": ["eslint:recommended", "prettier"],
+    "extends": ["eslint:recommended", "prettier", "plugin:unicorn/recommended"],
     "rules": {
         "no-console": "error",
         "curly": ["error", "all"],
@@ -20,7 +20,17 @@
                 "array": false
             }
         ],
-        "prefer-template": "error"
+        "prefer-template": "error",
+
+        "unicorn/no-null": 0,
+        "unicorn/prevent-abbreviations": 0,
+        "unicorn/prefer-string-slice": 0,
+        "unicorn/prefer-code-point": 0,
+        "unicorn/no-array-push-push": 0,
+        "unicorn/no-array-reduce": 0,
+        "unicorn/no-for-loop": 0,
+        "unicorn/consistent-destructuring": 0,
+        "unicorn/prefer-switch": [2, { "emptyDefaultCase": "do-nothing-comment" }]
     },
     "parserOptions": {
         "sourceType": "module"

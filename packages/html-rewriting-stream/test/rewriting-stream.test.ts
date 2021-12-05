@@ -1,20 +1,20 @@
-import * as assert from 'assert';
+import * as assert from 'node:assert';
 import dedent from 'dedent';
 import { RewritingStream } from '../lib/index.js';
 import { loadSAXParserTestData } from '@parse5/test-utils/utils/load-sax-parser-test-data.js';
 import { getStringDiffMsg, writeChunkedToStream, WritableStreamStub } from '@parse5/test-utils/utils/common.js';
 
 const srcHtml = dedent`
-    <!DOCTYPE html "">
-    <html>
-        <!-- comment1 -->
-        <head /// 123>
-        </head>
-        <!-- comment2 -->
-        <body =123>
-            <div>Hey ya</div>
-        </body>
-    </html>
+  <!DOCTYPE html "">
+  <html>
+      <!-- comment1 -->
+      <head /// 123>
+      </head>
+      <!-- comment2 -->
+      <body =123>
+          <div>Hey ya</div>
+      </body>
+  </html>
 `;
 
 function createRewriterTest({
@@ -46,35 +46,34 @@ function createRewriterTest({
 
 describe('RewritingStream', () => {
     // Raw data tests
-    loadSAXParserTestData().forEach(
+    for (const [idx, data] of loadSAXParserTestData().entries()) {
         // NOTE: if we don't have any event handlers assigned, stream should use raw
         // data for the serialization, so serialized content should identical to the original.
-        (data, idx) =>
-            it(
-                `Raw token serialization - ${idx + 1}.${data.name}`,
-                createRewriterTest({
-                    src: data.src,
-                    expected: data.src,
-                })
-            )
-    );
+        it(
+            `Raw token serialization - ${idx + 1}.${data.name}`,
+            createRewriterTest({
+                src: data.src,
+                expected: data.src,
+            })
+        );
+    }
 
     it(
         'rewrite start tags',
         createRewriterTest({
             src: srcHtml,
             expected: dedent`
-            <!DOCTYPE html "">
-            <html>
-                <!-- comment1 -->
-                <body 123="">
-                </head>
-                <!-- comment2 -->
-                <head =123="">
-                    <div>Hey ya</div>
-                </body>
-            </html>
-        `,
+              <!DOCTYPE html "">
+              <html>
+                  <!-- comment1 -->
+                  <body 123="">
+                  </head>
+                  <!-- comment2 -->
+                  <head =123="">
+                      <div>Hey ya</div>
+                  </body>
+              </html>
+            `,
             assignTokenHandlers: (rewriter) => {
                 rewriter.on('startTag', (token) => {
                     if (token.tagName === 'head') {
@@ -94,17 +93,17 @@ describe('RewritingStream', () => {
         createRewriterTest({
             src: srcHtml,
             expected: dedent`
-            <!DOCTYPE html "">
-            <html>
-                <!-- comment1 -->
-                <head /// 123>
-                </rewritten>
-                <!-- comment2 -->
-                <body =123>
-                    <div>Hey ya</rewritten>
-                </rewritten>
-            </rewritten>
-        `,
+              <!DOCTYPE html "">
+              <html>
+                  <!-- comment1 -->
+                  <head /// 123>
+                  </rewritten>
+                  <!-- comment2 -->
+                  <body =123>
+                      <div>Hey ya</rewritten>
+                  </rewritten>
+              </rewritten>
+            `,
             assignTokenHandlers: (rewriter) => {
                 rewriter.on('endTag', (token) => {
                     token.tagName = 'rewritten';
@@ -120,17 +119,17 @@ describe('RewritingStream', () => {
         createRewriterTest({
             src: srcHtml,
             expected: dedent`
-            <!DOCTYPE html "">
-            <html>
-                <!-- comment1 -->
-                <head /// 123>
-                </head>
-                <!-- comment2 -->
-                <body =123>
-                    <div>42</div>
-                </body>
-            </html>
-        `,
+              <!DOCTYPE html "">
+              <html>
+                  <!-- comment1 -->
+                  <head /// 123>
+                  </head>
+                  <!-- comment2 -->
+                  <body =123>
+                      <div>42</div>
+                  </body>
+              </html>
+            `,
             assignTokenHandlers: (rewriter) => {
                 rewriter.on('text', (token) => {
                     if (token.text.trim().length > 0) {
@@ -148,17 +147,17 @@ describe('RewritingStream', () => {
         createRewriterTest({
             src: srcHtml,
             expected: dedent`
-            <!DOCTYPE html "">
-            <html>
-                <!--42-->
-                <head /// 123>
-                </head>
-                <!--42-->
-                <body =123>
-                    <div>Hey ya</div>
-                </body>
-            </html>
-        `,
+              <!DOCTYPE html "">
+              <html>
+                  <!--42-->
+                  <head /// 123>
+                  </head>
+                  <!--42-->
+                  <body =123>
+                      <div>Hey ya</div>
+                  </body>
+              </html>
+            `,
             assignTokenHandlers: (rewriter) => {
                 rewriter.on('comment', (token) => {
                     token.text = '42';
@@ -174,17 +173,17 @@ describe('RewritingStream', () => {
         createRewriterTest({
             src: srcHtml,
             expected: dedent`
-            <!DOCTYPE html PUBLIC "42" "hey">
-            <html>
-                <!-- comment1 -->
-                <head /// 123>
-                </head>
-                <!-- comment2 -->
-                <body =123>
-                    <div>Hey ya</div>
-                </body>
-            </html>
-        `,
+              <!DOCTYPE html PUBLIC "42" "hey">
+              <html>
+                  <!-- comment1 -->
+                  <head /// 123>
+                  </head>
+                  <!-- comment2 -->
+                  <body =123>
+                      <div>Hey ya</div>
+                  </body>
+              </html>
+            `,
             assignTokenHandlers: (rewriter) => {
                 rewriter.on('doctype', (token) => {
                     token.publicId = '42';
@@ -201,17 +200,17 @@ describe('RewritingStream', () => {
         createRewriterTest({
             src: srcHtml,
             expected: dedent`
-            <!DOCTYPE html "">
-            <wrap><html></wrap>
-                <!-- comment1 -->
-                <wrap><head 123=""></wrap>
-                </head>
-                <!-- comment2 -->
-                <wrap><body =123=""></wrap>
-                    <wrap><div></wrap>Hey ya</div>
-                </body>
-            </html>
-        `,
+              <!DOCTYPE html "">
+              <wrap><html></wrap>
+                  <!-- comment1 -->
+                  <wrap><head 123=""></wrap>
+                  </head>
+                  <!-- comment2 -->
+                  <wrap><body =123=""></wrap>
+                      <wrap><div></wrap>Hey ya</div>
+                  </body>
+              </html>
+            `,
             assignTokenHandlers: (rewriter) => {
                 rewriter.on('startTag', (token) => {
                     rewriter.emitRaw('<wrap>');
@@ -227,17 +226,17 @@ describe('RewritingStream', () => {
         createRewriterTest({
             src: srcHtml,
             expected: dedent`
-            <!DOCTYPE html "">42
-            <html>42
-                <!-- comment1 -->42
-                <head /// 123>42
-                </head>42
-                <!-- comment2 -->42
-                <body =123>42
-                    <div>42Hey ya</div>42
-                </body>42
-            </html>42
-        `,
+              <!DOCTYPE html "">42
+              <html>42
+                  <!-- comment1 -->42
+                  <head /// 123>42
+                  </head>42
+                  <!-- comment2 -->42
+                  <body =123>42
+                      <div>42Hey ya</div>42
+                  </body>42
+              </html>42
+            `,
             assignTokenHandlers: (rewriter) => {
                 const rewriteRaw = (_: unknown, raw: string) => {
                     rewriter.emitRaw(`${raw}42`);
@@ -256,25 +255,25 @@ describe('RewritingStream', () => {
         'Should escape entities in attributes and text',
         createRewriterTest({
             src: dedent`
-            <!DOCTYPE html "">
-            <html>
-                <head foo='bar"baz"'>
-                </head>
-                <body>
-                    <div>foo&amp;bar</div>
-                </body>
-            </html>
-        `,
+              <!DOCTYPE html "">
+              <html>
+                  <head foo='bar"baz"'>
+                  </head>
+                  <body>
+                      <div>foo&amp;bar</div>
+                  </body>
+              </html>
+            `,
             expected: dedent`
-            <!DOCTYPE html "">
-            <html>
-                <head foo="bar&quot;baz&quot;">
-                </head>
-                <body>
-                    <div>foo&amp;bar</div>
-                </body>
-            </html>
-        `,
+              <!DOCTYPE html "">
+              <html>
+                  <head foo="bar&quot;baz&quot;">
+                  </head>
+                  <body>
+                      <div>foo&amp;bar</div>
+                  </body>
+              </html>
+            `,
             assignTokenHandlers: (rewriter) => {
                 rewriter.on('startTag', (token) => rewriter.emitStartTag(token));
                 rewriter.on('text', (token) => rewriter.emitText(token));
