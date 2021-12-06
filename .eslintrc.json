@@ -22,15 +22,15 @@
         ],
         "prefer-template": "error",
 
-        "unicorn/no-null": 0,
-        "unicorn/prevent-abbreviations": 0,
-        "unicorn/prefer-string-slice": 0,
-        "unicorn/prefer-code-point": 0,
-        "unicorn/no-array-push-push": 0,
-        "unicorn/no-array-reduce": 0,
-        "unicorn/no-for-loop": 0,
-        "unicorn/consistent-destructuring": 0,
-        "unicorn/prefer-switch": [2, { "emptyDefaultCase": "do-nothing-comment" }]
+        "unicorn/no-null": "off",
+        "unicorn/prevent-abbreviations": "off",
+        "unicorn/prefer-string-slice": "off",
+        "unicorn/prefer-code-point": "off",
+        "unicorn/no-array-push-push": "off",
+        "unicorn/no-array-reduce": "off",
+        "unicorn/no-for-loop": "off",
+        "unicorn/consistent-destructuring": "off",
+        "unicorn/prefer-switch": ["error", { "emptyDefaultCase": "do-nothing-comment" }]
     },
     "parserOptions": {
         "sourceType": "module"
@@ -46,6 +46,7 @@
             "rules": {
                 "@typescript-eslint/no-non-null-assertion": "warn",
                 "@typescript-eslint/no-explicit-any": "warn",
+                "@typescript-eslint/explicit-function-return-type": "error",
 
                 "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
             }
