@@ -1,6 +1,6 @@
 import { ParserOptions } from 'parse5/lib/parser/index';
 import { Location, ElementLocation } from 'parse5/lib/common/token';
-import { TreeAdapter, TreeAdapterTypeMap } from 'parse5/lib/tree-adapters/interface';
+import { TreeAdapter, TreeAdapterTypeMap, Node } from 'parse5/lib/tree-adapters/interface';
 import * as assert from 'node:assert';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -17,7 +17,7 @@ import {
 function walkTree<T extends TreeAdapterTypeMap>(
     document: T['document'],
     treeAdapter: TreeAdapter<T>,
-    handler: (node: T['node']) => void
+    handler: (node: Node<T>) => void
 ): void {
     const stack = [...treeAdapter.getChildNodes(document)];
     let node;
@@ -105,7 +105,7 @@ function loadParserLocationInfoTestData(): { name: string; data: string }[] {
 export function generateLocationInfoParserTests(
     name: string,
     _prefix: string,
-    parse: (html: string, opts: ParserOptions<TreeAdapterTypeMap>) => { node: TreeAdapterTypeMap['node'] }
+    parse: (html: string, opts: ParserOptions<TreeAdapterTypeMap>) => { node: Node<TreeAdapterTypeMap> }
 ): void {
     generateTestsForEachTreeAdapter(name, (treeAdapter) => {
         for (const test of loadParserLocationInfoTestData()) {

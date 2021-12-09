@@ -1,7 +1,7 @@
 import * as defaultTreeAdapter from '../tree-adapters/default.js';
 import * as doctype from '../common/doctype.js';
 import { TAG_NAMES as $, NAMESPACES as NS } from '../common/html.js';
-import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface';
+import type { TreeAdapter, TreeAdapterTypeMap, ParentNode } from '../tree-adapters/interface';
 
 //Escaping regexes
 const AMP_REGEX = /&/g;
@@ -57,7 +57,7 @@ export class Serializer<T extends TreeAdapterTypeMap> {
     treeAdapter: TreeAdapter;
 
     constructor(
-        private startNode: T['parentNode'],
+        private startNode: ParentNode<T>,
         { treeAdapter = defaultTreeAdapter as TreeAdapter<T> }: SerializerOptions<T>
     ) {
         this.treeAdapter = treeAdapter;
@@ -71,7 +71,7 @@ export class Serializer<T extends TreeAdapterTypeMap> {
     }
 
     //Internals
-    private _serializeChildNodes(parentNode: T['parentNode']): void {
+    private _serializeChildNodes(parentNode: ParentNode<T>): void {
         const childNodes = this.treeAdapter.getChildNodes(parentNode);
 
         if (childNodes) {

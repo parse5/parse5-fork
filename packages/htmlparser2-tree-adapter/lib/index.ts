@@ -16,9 +16,6 @@ import {
 export { isComment as isCommentNode, isTag as isElementNode, isText as isTextNode } from 'domhandler';
 
 export type Htmlparser2TreeAdapterMap = TreeAdapterTypeMap<
-    Node,
-    NodeWithChildren,
-    Node,
     Document,
     Document,
     Element,

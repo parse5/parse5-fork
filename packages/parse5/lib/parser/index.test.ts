@@ -19,8 +19,9 @@ describe('parser', () => {
         const html = '<!DOCTYPE html SYSTEM "about:legacy-compat"><html><head></head><body>Hi there!</body></html>';
         const document = parse5.parse(html, { treeAdapter: treeAdapters.htmlparser2 });
 
-        assert.ok(treeAdapters.htmlparser2.isDocumentTypeNode(document.childNodes[0]));
-        assert.strictEqual(document.childNodes[0].data, '!DOCTYPE html SYSTEM "about:legacy-compat"');
+        const childNodes = treeAdapters.htmlparser2.getChildNodes(document);
+        assert.ok(treeAdapters.htmlparser2.isDocumentTypeNode(childNodes[0]));
+        assert.strictEqual(childNodes[0].data, '!DOCTYPE html SYSTEM "about:legacy-compat"');
     });
 
     describe('Regression - Incorrect arguments fallback for the parser.parseFragment (GH-82, GH-83)', () => {
@@ -85,8 +86,9 @@ describe('parser', () => {
                 treeAdapter: treeAdapters.htmlparser2,
             });
 
-            assert.ok(treeAdapters.htmlparser2.isElementNode(fragment.childNodes[0]));
-            assert.strictEqual(treeAdapters.htmlparser2.getAttrList(fragment.childNodes[0]).length, 1);
+            const childNodes = treeAdapters.htmlparser2.getChildNodes(fragment);
+            assert.ok(treeAdapters.htmlparser2.isElementNode(childNodes[0]));
+            assert.strictEqual(treeAdapters.htmlparser2.getAttrList(childNodes[0]).length, 1);
         });
     });
 

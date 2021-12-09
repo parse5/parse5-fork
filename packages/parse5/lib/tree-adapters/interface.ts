@@ -2,20 +2,14 @@ import { DOCUMENT_MODE, NAMESPACES } from '../common/html.js';
 import type { Attribute, ElementLocation } from '../common/token.js';
 
 export interface TreeAdapterTypeMap<
-    // eslint-disable-next-line @typescript-eslint/ban-types
-    Node = {},
-    NodeWithChildren extends Node = Node,
-    NodeWithParent extends Node = Node,
-    Document extends NodeWithChildren = NodeWithChildren,
-    DocumentFragment extends NodeWithChildren = NodeWithChildren,
-    Element extends NodeWithChildren & NodeWithParent = NodeWithChildren & NodeWithParent,
-    CommentNode extends NodeWithParent = NodeWithParent,
-    TextNode extends NodeWithParent = NodeWithParent,
-    Template extends Element = Element,
-    DocumentType extends NodeWithParent = NodeWithParent
+    Document = unknown,
+    DocumentFragment = unknown,
+    Element = unknown,
+    CommentNode = unknown,
+    TextNode = unknown,
+    Template = unknown,
+    DocumentType = unknown
 > {
-    node: Node;
-    parentNode: NodeWithChildren;
     document: Document;
     documentFragment: DocumentFragment;
     element: Element;
@@ -24,6 +18,19 @@ export interface TreeAdapterTypeMap<
     template: Template;
     documentType: DocumentType;
 }
+
+export type ParentNode<T extends TreeAdapterTypeMap> =
+    | T['document']
+    | T['documentFragment']
+    | T['element']
+    | T['template'];
+export type ChildNode<T extends TreeAdapterTypeMap> =
+    | T['element']
+    | T['template']
+    | T['textNode']
+    | T['commentNode']
+    | T['documentType'];
+export type Node<T extends TreeAdapterTypeMap> = ParentNode<T> | ChildNode<T>;
 
 /**
  * Tree adapter is a set of utility functions that provides minimal required abstraction layer beetween parser and a specific AST format.
@@ -47,7 +54,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param parentNode - Parent node.
      * @param newNode -  Child node.
      */
-    appendChild(parentNode: T['parentNode'], newNode: T['node']): void;
+    appendChild(parentNode: ParentNode<T>, newNode: ChildNode<T>): void;
 
     /**
      * Creates a comment node.
@@ -80,7 +87,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      *
      * @param node - Node to remove.
      */
-    detachNode(node: T['node']): void;
+    detachNode(node: ChildNode<T>): void;
 
     /**
      * Returns the given element's attributes in an array, in the form of name-value pairs.
@@ -95,7 +102,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      *
      * @param node - Node.
      */
-    getChildNodes(node: T['parentNode']): Array<T['node']>;
+    getChildNodes(node: ParentNode<T>): ChildNode<T>[];
 
     /**
      * Returns the given comment node's content.
@@ -137,7 +144,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      *
      * @param node - Node.
      */
-    getFirstChild(node: T['parentNode']): T['node'] | null;
+    getFirstChild(node: ParentNode<T>): ChildNode<T> | null;
 
     /**
      * Returns the given element's namespace.
@@ -151,14 +158,14 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      *
      * @param node - Node.
      */
-    getNodeSourceCodeLocation(node: T['node']): ElementLocation | undefined | null;
+    getNodeSourceCodeLocation(node: Node<T>): ElementLocation | undefined | null;
 
     /**
      * Returns the given node's parent.
      *
      * @param node - Node.
      */
-    getParentNode(node: T['node']): T['parentNode'] | null;
+    getParentNode(node: Node<T>): ParentNode<T> | null;
 
     /**
      * Returns the given element's tag name.
@@ -188,7 +195,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param newNode -  Child node.
      * @param referenceNode -  Reference node.
      */
-    insertBefore(parentNode: T['parentNode'], newNode: T['node'], referenceNode: T['node']): void;
+    insertBefore(parentNode: ParentNode<T>, newNode: ChildNode<T>, referenceNode: ChildNode<T>): void;
 
     /**
      * Inserts text into a node. If the last child of the node is a text node, the provided text will be appended to the
@@ -197,7 +204,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param parentNode - Node to insert text into.
      * @param text - Text to insert.
      */
-    insertText(parentNode: T['parentNode'], text: string): void;
+    insertText(parentNode: ParentNode<T>, text: string): void;
 
     /**
      * Inserts text into a sibling node that goes before the reference node. If this sibling node is the text node,
@@ -208,35 +215,35 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param text - Text to insert.
      * @param referenceNode - Node to insert text before.
      */
-    insertTextBefore(parentNode: T['parentNode'], text: string, referenceNode: T['node']): void;
+    insertTextBefore(parentNode: ParentNode<T>, text: string, referenceNode: ChildNode<T>): void;
 
     /**
      * Determines if the given node is a comment node.
      *
      * @param node - Node.
      */
-    isCommentNode(node: T['node']): node is T['commentNode'];
+    isCommentNode(node: Node<T>): node is T['commentNode'];
 
     /**
      * Determines if the given node is a document type node.
      *
      * @param node - Node.
      */
-    isDocumentTypeNode(node: T['node']): node is T['documentType'];
+    isDocumentTypeNode(node: Node<T>): node is T['documentType'];
 
     /**
      * Determines if the given node is an element.
      *
      * @param node - Node.
      */
-    isElementNode(node: T['node']): node is T['element'];
+    isElementNode(node: Node<T>): node is T['element'];
 
     /**
      * Determines if the given node is a text node.
      *
      * @param node - Node.
      */
-    isTextNode(node: T['node']): node is T['textNode'];
+    isTextNode(node: Node<T>): node is T['textNode'];
 
     /**
      * Sets the [document mode](https://dom.spec.whatwg.org/#concept-document-limited-quirks).
@@ -263,14 +270,14 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      *
      * @param node - Node.
      */
-    setNodeSourceCodeLocation(node: T['node'], location: ElementLocation | null): void;
+    setNodeSourceCodeLocation(node: Node<T>, location: ElementLocation | null): void;
 
     /**
      * Updates the source code location information of the node.
      *
      * @param node - Node.
      */
-    updateNodeSourceCodeLocation(node: T['node'], location: Partial<ElementLocation>): void;
+    updateNodeSourceCodeLocation(node: Node<T>, location: Partial<ElementLocation>): void;
 
     /**
      * Sets the `<template>` element content element.
