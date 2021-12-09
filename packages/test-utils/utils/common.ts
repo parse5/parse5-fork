@@ -8,7 +8,7 @@ import type { Location } from 'parse5/lib/common/token';
 // Ensure the default tree adapter matches the expected type.
 export const treeAdapters = {
     default: defaultTreeAdapter as TreeAdapter<defaultTreeAdapter.DefaultTreeAdapterMap>,
-    htmlparser2: htmlTreeAdapter as TreeAdapter<htmlTreeAdapter.Htmlparser2TreeAdapterMap>,
+    htmlparser2: htmlTreeAdapter as unknown as TreeAdapter<htmlTreeAdapter.Htmlparser2TreeAdapterMap>,
 } as const;
 
 export function addSlashes(str: string): string {
