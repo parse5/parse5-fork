@@ -1,5 +1,5 @@
 import { TAG_ID as $, NAMESPACES as NS, isNumberedHeader } from '../common/html.js';
-import type { TreeAdapter, TreeAdapterTypeMap, ParentNode } from '../tree-adapters/interface';
+import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface';
 
 //Element utils
 const IMPLICIT_END_TAG_REQUIRED = new Set([$.DD, $.DT, $.LI, $.OPTGROUP, $.OPTION, $.P, $.RB, $.RP, $.RT, $.RTC]);
@@ -43,23 +43,23 @@ const TABLE_CELLS = [$.TD, $.TH];
 
 //Stack of open elements
 export class OpenElementStack<T extends TreeAdapterTypeMap> {
-    items: ParentNode<T>[] = [];
+    items: T['parentNode'][] = [];
     tagIDs: $[] = [];
-    current: ParentNode<T>;
+    current: T['parentNode'];
     stackTop = -1;
     tmplCount = 0;
 
     currentTagId = $.UNKNOWN;
 
-    get currentTmplContentOrNode(): ParentNode<T> {
+    get currentTmplContentOrNode(): T['parentNode'] {
         return this._isInTemplate() ? this.treeAdapter.getTemplateContent(this.current) : this.current;
     }
 
     constructor(
         document: T['document'],
         private treeAdapter: TreeAdapter<T>,
-        private onItemPush: (node: ParentNode<T>, tid: number, isTop: boolean) => void,
-        private onItemPop: (node: ParentNode<T>, isTop: boolean) => void
+        private onItemPush: (node: T['parentNode'], tid: number, isTop: boolean) => void,
+        private onItemPop: (node: T['parentNode'], isTop: boolean) => void
     ) {
         this.current = document;
     }

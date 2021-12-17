@@ -6,7 +6,7 @@ import * as assert from 'node:assert';
 import { serializeToDatFileFormat } from './serialize-to-dat-file-format.js';
 import { generateTestsForEachTreeAdapter } from './common.js';
 import { parseDatFile, DatFile } from '@parse5/test-utils/utils/parse-dat-file.js';
-import type { TreeAdapter, TreeAdapterTypeMap, Node } from 'parse5/lib/tree-adapters/interface';
+import type { TreeAdapter, TreeAdapterTypeMap } from 'parse5/lib/tree-adapters/interface';
 
 export interface TreeConstructionTestData<T extends TreeAdapterTypeMap> extends DatFile<T> {
     idx: number;
@@ -70,7 +70,7 @@ interface ParseMethodOptions<T extends TreeAdapterTypeMap> extends ParserOptions
 }
 
 interface ParseResult<T extends TreeAdapterTypeMap> {
-    node: Node<T>;
+    node: T['node'];
     chunks?: string[];
 }
 

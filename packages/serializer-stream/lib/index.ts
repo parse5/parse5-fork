@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import { Serializer, SerializerOptions } from 'parse5/lib/serializer/index.js';
-import type { TreeAdapterTypeMap, ParentNode } from 'parse5/lib/tree-adapters/interface';
+import type { TreeAdapterTypeMap } from 'parse5/lib/tree-adapters/interface';
 
 /**
  * Streaming AST node to an HTML serializer. A [readable stream](https://nodejs.org/api/stream.html#stream_class_stream_readable).
@@ -30,7 +30,7 @@ export class SerializerStream<T extends TreeAdapterTypeMap> extends Readable {
      * @param node Node to serialize.
      * @param options Serialization options.
      */
-    constructor(node: ParentNode<T>, options: SerializerOptions<T>) {
+    constructor(node: T['parentNode'], options: SerializerOptions<T>) {
         super({ encoding: 'utf8' });
 
         this.serializer = new Serializer(node, options);

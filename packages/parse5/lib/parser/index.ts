@@ -16,7 +16,7 @@ import {
     isNumberedHeader,
     getTagID,
 } from '../common/html.js';
-import type { TreeAdapter, TreeAdapterTypeMap, ParentNode } from '../tree-adapters/interface.js';
+import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface.js';
 import {
     TokenType,
     getTokenAttr,
@@ -149,7 +149,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         return document;
     }
 
-    public parseFragment(html: string, fragmentContext?: ParentNode<T> | null): T['documentFragment'] {
+    public parseFragment(html: string, fragmentContext?: T['parentNode'] | null): T['documentFragment'] {
         //NOTE: use <template> element as a fragment context if context element was not provided,
         //so we will parse in "forgiving" manner
         fragmentContext ??= this.treeAdapter.createElement(TN.TEMPLATE, NS.HTML, []);
@@ -172,7 +172,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         this.tokenizer.write(html, true);
         this._runParsingLoop(null);
 
-        const rootElement = this.treeAdapter.getFirstChild(documentMock) as ParentNode<T>;
+        const rootElement = this.treeAdapter.getFirstChild(documentMock) as T['parentNode'];
         const fragment = this.treeAdapter.createDocumentFragment();
 
         this._adoptNodes(rootElement, fragment);
@@ -318,11 +318,11 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Text parsing
-    private onItemPush(node: ParentNode<T>, tid: number, isTop: boolean): void {
+    private onItemPush(node: T['parentNode'], tid: number, isTop: boolean): void {
         if (isTop && this.openElements.stackTop > 0) this._setContextModes(node, tid);
     }
 
-    private onItemPop(node: ParentNode<T>, isTop: boolean): void {
+    private onItemPop(node: T['parentNode'], isTop: boolean): void {
         if (this.options.sourceCodeLocationInfo) {
             this._setEndLocation(node, this.currentToken!);
         }
@@ -342,7 +342,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
     }
 
-    private _setContextModes(current: ParentNode<T>, tid: number): void {
+    private _setContextModes(current: T['parentNode'], tid: number): void {
         const isHTML = current === this.document || this.treeAdapter.getNamespaceURI(current) === NS.HTML;
 
         this._considerForeignContent = !isHTML;
@@ -493,7 +493,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         this.openElements.push(element, $.HTML);
     }
 
-    _appendCommentNode(token: CommentToken, parent: ParentNode<T>): void {
+    _appendCommentNode(token: CommentToken, parent: T['parentNode']): void {
         const commentNode = this.treeAdapter.createCommentNode(token.data);
 
         this.treeAdapter.appendChild(parent, commentNode);
@@ -537,7 +537,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
     }
 
-    _adoptNodes(donor: ParentNode<T>, recipient: ParentNode<T>): void {
+    _adoptNodes(donor: T['parentNode'], recipient: T['parentNode']): void {
         for (let child = this.treeAdapter.getFirstChild(donor); child; child = this.treeAdapter.getFirstChild(donor)) {
             this.treeAdapter.detachNode(child);
             this.treeAdapter.appendChild(recipient, child);
@@ -572,7 +572,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
     //Token processing
     private _shouldProcessTokenInForeignContent(token: Token): boolean {
-        let current: ParentNode<T>;
+        let current: T['parentNode'];
         let currentTagId: number;
 
         if (this.openElements.stackTop === 0 && this.fragmentContext) {
@@ -969,7 +969,7 @@ function aaObtainFormattingElementEntry<T extends TreeAdapterTypeMap>(
 function aaObtainFurthestBlock<T extends TreeAdapterTypeMap>(
     p: Parser<T>,
     formattingElementEntry: ElementEntry<T>
-): ParentNode<T> | null {
+): T['parentNode'] | null {
     let furthestBlock = null;
     let idx = p.openElements.stackTop;
 
@@ -1049,7 +1049,7 @@ function aaRecreateElementFromEntry<T extends TreeAdapterTypeMap>(
 //Step 14 of the algorithm
 function aaInsertLastNodeInCommonAncestor<T extends TreeAdapterTypeMap>(
     p: Parser<T>,
-    commonAncestor: ParentNode<T>,
+    commonAncestor: T['parentNode'],
     lastElement: T['element']
 ): void {
     const tn = p.treeAdapter.getTagName(commonAncestor);
@@ -1071,7 +1071,7 @@ function aaInsertLastNodeInCommonAncestor<T extends TreeAdapterTypeMap>(
 //Steps 15-19 of the algorithm
 function aaReplaceFormattingElement<T extends TreeAdapterTypeMap>(
     p: Parser<T>,
-    furthestBlock: ParentNode<T>,
+    furthestBlock: T['parentNode'],
     formattingElementEntry: ElementEntry<T>
 ): void {
     const ns = p.treeAdapter.getNamespaceURI(formattingElementEntry.element);

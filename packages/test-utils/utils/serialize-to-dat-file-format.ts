@@ -1,5 +1,5 @@
 import { Attribute } from 'parse5/lib/common/token';
-import { TreeAdapter, TreeAdapterTypeMap, Node, ParentNode } from 'parse5/lib/tree-adapters/interface';
+import { TreeAdapter, TreeAdapterTypeMap } from 'parse5/lib/tree-adapters/interface';
 import { TAG_NAMES as $, NAMESPACES as NS } from 'parse5/lib/common/html.js';
 
 function getSerializedTreeIndent(indent: number): string {
@@ -21,7 +21,7 @@ function getElementSerializedNamespaceURI<T extends TreeAdapterTypeMap>(
 }
 
 function serializeNodeList<T extends TreeAdapterTypeMap>(
-    nodes: Node<T>[],
+    nodes: T['node'][],
     indent: number,
     treeAdapter: TreeAdapter<T>
 ): string {
@@ -79,7 +79,7 @@ function serializeNodeList<T extends TreeAdapterTypeMap>(
 }
 
 export function serializeToDatFileFormat<T extends TreeAdapterTypeMap>(
-    rootNode: ParentNode<T>,
+    rootNode: T['parentNode'],
     treeAdapter: TreeAdapter<T>
 ): string {
     return serializeNodeList(treeAdapter.getChildNodes(rootNode), 0, treeAdapter);

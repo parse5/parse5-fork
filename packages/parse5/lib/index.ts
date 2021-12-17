@@ -1,7 +1,7 @@
 import { Parser, ParserOptions } from './parser/index.js';
 import { Serializer, SerializerOptions } from './serializer/index.js';
 import type { DefaultTreeAdapterMap } from './tree-adapters/default.js';
-import type { TreeAdapterTypeMap, ParentNode } from './tree-adapters/interface.js';
+import type { TreeAdapterTypeMap } from './tree-adapters/interface.js';
 
 export { ParserOptions } from './parser/index.js';
 export { SerializerOptions } from './serializer/index.js';
@@ -58,7 +58,7 @@ export function parse<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
  * @returns DocumentFragment
  */
 export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
-    fragmentContext: ParentNode<T> | null,
+    fragmentContext: T['parentNode'] | null,
     html: string,
     options: ParserOptions<T>
 ): T['documentFragment'];
@@ -67,7 +67,7 @@ export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterM
     options?: ParserOptions<T>
 ): T['documentFragment'];
 export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
-    fragmentContext: ParentNode<T> | null | string,
+    fragmentContext: T['parentNode'] | null | string,
     html?: string | ParserOptions<T>,
     options?: ParserOptions<T>
 ): T['documentFragment'] {
@@ -105,7 +105,7 @@ export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterM
  * @param options Serialization options.
  */
 export function serialize<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
-    node: ParentNode<T>,
+    node: T['parentNode'],
     options: SerializerOptions<T>
 ): string {
     const serializer = new Serializer(node, options);
