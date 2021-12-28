@@ -1,6 +1,5 @@
 import { DOCUMENT_MODE, NAMESPACES } from '../common/html.js';
 import type { Attribute, Location, ElementLocation } from '../common/token.js';
-import type { TreeAdapterTypeMap } from './interface.js';
 
 export enum NodeType {
     Document = '#document',
@@ -92,23 +91,6 @@ export interface DocumentType {
     sourceCodeLocation?: Location | null;
 }
 
-export type ParentNode = Document | DocumentFragment | Element | Template;
-export type ChildNode = Element | Template | CommentNode | TextNode | DocumentType;
-export type Node = ParentNode | ChildNode;
-
-export type DefaultTreeAdapterMap = TreeAdapterTypeMap<
-    Node,
-    ParentNode,
-    ChildNode,
-    Document,
-    DocumentFragment,
-    Element,
-    CommentNode,
-    TextNode,
-    Template,
-    DocumentType
->;
-
 //Node construction
 export function createDocument(): Document {
     return {
@@ -152,17 +134,21 @@ const createTextNode = function (value: string): TextNode {
     };
 };
 
+export type ParentNode = Document | DocumentFragment | Element;
+export type Node = CommentNode | Document | DocumentFragment | DocumentType | Element | TextNode;
+export type ChildNode = Element | CommentNode | DocumentType | TextNode;
+
 //Tree mutation
 export function appendChild(parentNode: ParentNode, newNode: ChildNode): void {
     parentNode.childNodes.push(newNode);
-    newNode.parentNode = parentNode;
+    (newNode as ChildNode).parentNode = parentNode;
 }
 
 export function insertBefore(parentNode: ParentNode, newNode: ChildNode, referenceNode: ChildNode): void {
     const insertionIdx = parentNode.childNodes.indexOf(referenceNode);
 
     parentNode.childNodes.splice(insertionIdx, 0, newNode);
-    newNode.parentNode = parentNode;
+    (newNode as ChildNode).parentNode = parentNode;
 }
 
 export function setTemplateContent(templateElement: Template, contentElement: DocumentFragment): void {
@@ -200,12 +186,13 @@ export function getDocumentMode(document: Document): DOCUMENT_MODE {
     return document.mode;
 }
 
-export function detachNode(node: ChildNode): void {
-    if (node.parentNode) {
-        const idx = node.parentNode.childNodes.indexOf(node);
+export function detachNode(node: Node): void {
+    const asParent = node as ChildNode;
+    if (asParent.parentNode) {
+        const idx = asParent.parentNode.childNodes.indexOf(asParent);
 
-        node.parentNode.childNodes.splice(idx, 1);
-        node.parentNode = null;
+        asParent.parentNode.childNodes.splice(idx, 1);
+        asParent.parentNode = null;
     }
 }
 
@@ -243,7 +230,7 @@ export function adoptAttributes(recipient: Element, attrs: Attribute[]): void {
 }
 
 //Tree traversing
-export function getFirstChild(node: ParentNode): null | ChildNode {
+export function getFirstChild(node: ParentNode): null | Node {
     return node.childNodes[0];
 }
 
@@ -251,8 +238,8 @@ export function getChildNodes(node: ParentNode): Node[] {
     return node.childNodes;
 }
 
-export function getParentNode(node: ChildNode): null | ParentNode {
-    return node.parentNode;
+export function getParentNode(node: Node): null | ParentNode {
+    return (node as ChildNode).parentNode ?? null;
 }
 
 export function getAttrList(element: Element): Attribute[] {

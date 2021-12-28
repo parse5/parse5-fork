@@ -1,7 +1,6 @@
-import * as defaultTreeAdapter from '../tree-adapters/default.js';
 import * as doctype from '../common/doctype.js';
 import { TAG_NAMES as $, NAMESPACES as NS } from '../common/html.js';
-import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface';
+import type { TreeAdapter } from '../tree-adapters/interface';
 
 //Escaping regexes
 const AMP_REGEX = /&/g;
@@ -42,23 +41,41 @@ const UNESCAPED_TEXT = new Set<string>([
     $.NOSCRIPT,
 ]);
 
-export interface SerializerOptions<T extends TreeAdapterTypeMap> {
+export interface SerializerOptions<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+> {
     /**
      * Specifies input tree format.
      *
      * @default `treeAdapters.default`
      */
-    treeAdapter?: TreeAdapter<T>;
+    treeAdapter: TreeAdapter<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>;
 }
 
 //Serializer
-export class Serializer<T extends TreeAdapterTypeMap> {
+export class Serializer<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+> {
     html = '';
-    treeAdapter: TreeAdapter;
+    treeAdapter: TreeAdapter<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>;
 
     constructor(
-        private startNode: T['parentNode'],
-        { treeAdapter = defaultTreeAdapter as TreeAdapter<T> }: SerializerOptions<T>
+        private startNode: TDocument | TDocumentFragment | TElement,
+        {
+            treeAdapter,
+        }: SerializerOptions<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>
     ) {
         this.treeAdapter = treeAdapter;
     }
@@ -71,7 +88,7 @@ export class Serializer<T extends TreeAdapterTypeMap> {
     }
 
     //Internals
-    private _serializeChildNodes(parentNode: T['parentNode']): void {
+    private _serializeChildNodes(parentNode: TDocument | TDocumentFragment | TElement): void {
         const childNodes = this.treeAdapter.getChildNodes(parentNode);
 
         if (childNodes) {
@@ -89,7 +106,7 @@ export class Serializer<T extends TreeAdapterTypeMap> {
         }
     }
 
-    private _serializeElement(node: T['element']): void {
+    private _serializeElement(node: TElement): void {
         const tn = this.treeAdapter.getTagName(node);
         const ns = this.treeAdapter.getNamespaceURI(node);
 
@@ -99,14 +116,14 @@ export class Serializer<T extends TreeAdapterTypeMap> {
 
         if (!VOID_ELEMENTS.has(tn)) {
             const childNodesHolder =
-                tn === $.TEMPLATE && ns === NS.HTML ? this.treeAdapter.getTemplateContent(node) : node;
+                tn === $.TEMPLATE && ns === NS.HTML ? this.treeAdapter.getTemplateContent(node as TTemplate) : node;
 
             this._serializeChildNodes(childNodesHolder);
             this.html += `</${tn}>`;
         }
     }
 
-    private _serializeAttributes(node: T['element']): void {
+    private _serializeAttributes(node: TElement): void {
         for (const attr of this.treeAdapter.getAttrList(node)) {
             const value = escapeString(attr.value, true);
 
@@ -141,7 +158,7 @@ export class Serializer<T extends TreeAdapterTypeMap> {
         }
     }
 
-    private _serializeTextNode(node: T['textNode']): void {
+    private _serializeTextNode(node: TTextNode): void {
         const content = this.treeAdapter.getTextNodeContent(node);
         const parent = this.treeAdapter.getParentNode(node);
 
@@ -151,11 +168,11 @@ export class Serializer<T extends TreeAdapterTypeMap> {
                 : escapeString(content, false);
     }
 
-    private _serializeCommentNode(node: T['commentNode']): void {
+    private _serializeCommentNode(node: TCommentNode): void {
         this.html += `<!--${this.treeAdapter.getCommentNodeContent(node)}-->`;
     }
 
-    private _serializeDocumentTypeNode(node: T['documentType']): void {
+    private _serializeDocumentTypeNode(node: TDocumentType): void {
         const name = this.treeAdapter.getDocumentTypeNodeName(node);
 
         this.html += `<${doctype.serializeContent(name, null, null)}>`;

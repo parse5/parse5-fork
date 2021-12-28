@@ -16,7 +16,7 @@ import {
     isNumberedHeader,
     getTagID,
 } from '../common/html.js';
-import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface.js';
+import type { TreeAdapter } from '../tree-adapters/interface.js';
 import {
     TokenType,
     getTokenAttr,
@@ -75,7 +75,15 @@ const BASE_LOC = {
 
 const TABLE_STRUCTURE_TAGS = new Set([$.TABLE, $.TBODY, $.TFOOT, $.THEAD, $.TR]);
 
-export interface ParserOptions<T extends TreeAdapterTypeMap> {
+export interface ParserOptions<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+> {
     /**
      * The [scripting flag](https://html.spec.whatwg.org/multipage/parsing.html#scripting-flag). If set
      * to `true`, `noscript` element content will be parsed as text.
@@ -101,7 +109,15 @@ export interface ParserOptions<T extends TreeAdapterTypeMap> {
      *
      * @default `treeAdapters.default`
      */
-    treeAdapter?: TreeAdapter<T> | undefined;
+    treeAdapter?: TreeAdapter<
+        TDocument,
+        TElement,
+        TDocumentType,
+        TCommentNode,
+        TTextNode,
+        TDocumentFragment,
+        TTemplate
+    >;
 
     /**
      * Callback for parse errors.
@@ -112,20 +128,46 @@ export interface ParserOptions<T extends TreeAdapterTypeMap> {
 }
 
 //Parser
-export class Parser<T extends TreeAdapterTypeMap> {
-    options: ParserOptions<T>;
-    treeAdapter: TreeAdapter<T>;
+export class Parser<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+> {
+    options: ParserOptions<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>;
+    treeAdapter: TreeAdapter<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>;
     private onParseError: ParserErrorHandler | null;
     private currentToken: Token | null = null;
 
-    constructor(options?: ParserOptions<T>) {
+    constructor(
+        options?: ParserOptions<
+            TDocument,
+            TElement,
+            TDocumentType,
+            TCommentNode,
+            TTextNode,
+            TDocumentFragment,
+            TTemplate
+        >
+    ) {
         this.options = {
             scriptingEnabled: true,
             sourceCodeLocationInfo: false,
             ...options,
         };
 
-        this.treeAdapter = this.options.treeAdapter ??= defaultTreeAdapter as TreeAdapter<T>;
+        this.treeAdapter = this.options.treeAdapter ??= defaultTreeAdapter as unknown as TreeAdapter<
+            TDocument,
+            TElement,
+            TDocumentType,
+            TCommentNode,
+            TTextNode,
+            TDocumentFragment,
+            TTemplate
+        >;
         this.onParseError = this.options.onParseError ??= null;
 
         // Always enable location info if we report parse errors.
@@ -135,7 +177,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     // API
-    public parse(html: string): T['document'] {
+    public parse(html: string): TDocument {
         const document = this.treeAdapter.createDocument();
 
         this._bootstrap(document, null);
@@ -145,7 +187,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         return document;
     }
 
-    public parseFragment(html: string, fragmentContext?: T['parentNode'] | null): T['documentFragment'] {
+    public parseFragment(html: string, fragmentContext?: TElement | null): TDocumentFragment {
         //NOTE: use <template> element as a fragment context if context element was not provided,
         //so we will parse in "forgiving" manner
         fragmentContext ??= this.treeAdapter.createElement(TN.TEMPLATE, NS.HTML, []);
@@ -153,7 +195,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         //NOTE: create fake element which will be used as 'document' for fragment parsing.
         //This is important for jsdom there 'document' can't be recreated, therefore
         //fragment parsing causes messing of the main `document`.
-        const documentMock = this.treeAdapter.createElement('documentmock', NS.HTML, []);
+        const documentMock = this.treeAdapter.createElement('documentmock', NS.HTML, []) as unknown as TDocument;
 
         this._bootstrap(documentMock, fragmentContext);
 
@@ -168,7 +210,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         this.tokenizer.write(html, true);
         this._runParsingLoop(null);
 
-        const rootElement = this.treeAdapter.getFirstChild(documentMock) as T['parentNode'];
+        const rootElement = this.treeAdapter.getFirstChild(documentMock) as TDocument | TDocumentFragment | TElement;
         const fragment = this.treeAdapter.createDocumentFragment();
 
         this._adoptNodes(rootElement, fragment);
@@ -181,16 +223,32 @@ export class Parser<T extends TreeAdapterTypeMap> {
     insertionMode = InsertionMode.INITIAL;
     originalInsertionMode = InsertionMode.INITIAL;
 
-    document!: T['document'];
-    fragmentContext!: T['element'] | null;
+    document!: TDocument;
+    fragmentContext!: TElement | null;
     fragmentContextID = $.UNKNOWN;
 
-    headElement: null | T['element'] = null;
-    formElement: null | T['element'] = null;
-    pendingScript: null | T['element'] = null;
+    headElement: null | TElement = null;
+    formElement: null | TElement = null;
+    pendingScript: null | TElement = null;
 
-    openElements!: OpenElementStack<T>;
-    activeFormattingElements!: FormattingElementList<T>;
+    openElements!: OpenElementStack<
+        TDocument,
+        TElement,
+        TDocumentType,
+        TCommentNode,
+        TTextNode,
+        TDocumentFragment,
+        TTemplate
+    >;
+    activeFormattingElements!: FormattingElementList<
+        TDocument,
+        TElement,
+        TDocumentType,
+        TCommentNode,
+        TTextNode,
+        TDocumentFragment,
+        TTemplate
+    >;
     private _considerForeignContent = false;
 
     /**
@@ -207,7 +265,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     fosterParentingEnabled = false;
 
     //Bootstrap parser
-    _bootstrap(document: T['document'], fragmentContext: T['element'] | null): void {
+    _bootstrap(document: TDocument, fragmentContext: TElement | null): void {
         this.tokenizer = new Tokenizer(this.options);
 
         this.stopped = false;
@@ -263,7 +321,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Parsing loop
-    private _runParsingLoop(scriptHandler: null | ((scriptElement: T['element']) => void)): void {
+    private _runParsingLoop(scriptHandler: null | ((scriptElement: TElement) => void)): void {
         while (!this.stopped) {
             const token = this.tokenizer.getNextToken();
 
@@ -298,7 +356,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
     public runParsingLoopForCurrentChunk(
         writeCallback: null | (() => void),
-        scriptHandler: (scriptElement: T['element']) => void
+        scriptHandler: (scriptElement: TElement) => void
     ): void {
         this._runParsingLoop(scriptHandler);
 
@@ -316,12 +374,12 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Text parsing
-    private onItemPush(node: T['parentNode'], tid: number, isTop: boolean): void {
+    private onItemPush(node: TDocument | TElement, tid: number, isTop: boolean): void {
         if (isTop && this.openElements.stackTop > 0) this._setContextModes(node, tid);
     }
 
-    private onItemPop(node: T['parentNode'], isTop: boolean): void {
-        if (this.options.sourceCodeLocationInfo) {
+    private onItemPop(node: TDocument | TElement, isTop: boolean): void {
+        if (this.options.sourceCodeLocationInfo && this.treeAdapter.isElementNode(node)) {
             this._setEndLocation(node, this.currentToken!);
         }
 
@@ -340,11 +398,11 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
     }
 
-    private _setContextModes(current: T['parentNode'], tid: number): void {
-        const isHTML = current === this.document || this.treeAdapter.getNamespaceURI(current) === NS.HTML;
+    private _setContextModes(current: TDocument | TDocumentFragment | TElement, tid: number): void {
+        const isHTML = current === this.document || this.treeAdapter.getNamespaceURI(current as TElement) === NS.HTML;
 
         this._considerForeignContent = !isHTML;
-        this.tokenizer.allowCDATA = !isHTML && !this._isIntegrationPoint(tid, current);
+        this.tokenizer.allowCDATA = !isHTML && !this._isIntegrationPoint(tid, current as TElement);
     }
 
     _switchToTextParsing(
@@ -364,7 +422,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Fragment parsing
-    _getAdjustedCurrentElement(): T['element'] {
+    _getAdjustedCurrentElement(): TElement | TDocument {
         return this.openElements.stackTop === 0 && this.fragmentContext
             ? this.fragmentContext
             : this.openElements.current;
@@ -379,7 +437,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
                 break;
             }
 
-            node = this.treeAdapter.getParentNode(node);
+            node = this.treeAdapter.getParentNode(node) as TElement;
         }
     }
 
@@ -434,7 +492,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
     }
 
-    _attachElementToTree(element: T['element'], location: LocationWithAttributes | null): void {
+    _attachElementToTree(element: TElement, location: LocationWithAttributes | null): void {
         if (this.options.sourceCodeLocationInfo) {
             const loc = location && {
                 ...location,
@@ -477,7 +535,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         const tmpl = this.treeAdapter.createElement(token.tagName, NS.HTML, token.attrs);
         const content = this.treeAdapter.createDocumentFragment();
 
-        this.treeAdapter.setTemplateContent(tmpl, content);
+        this.treeAdapter.setTemplateContent(tmpl as TTemplate, content);
         this._attachElementToTree(tmpl, token.location);
         this.openElements.push(tmpl, token.tagID);
         if (this.options.sourceCodeLocationInfo) this.treeAdapter.setNodeSourceCodeLocation(content, null);
@@ -491,7 +549,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         this.openElements.push(element, $.HTML);
     }
 
-    _appendCommentNode(token: CommentToken, parent: T['parentNode']): void {
+    _appendCommentNode(token: CommentToken, parent: TDocument | TDocumentFragment | TElement): void {
         const commentNode = this.treeAdapter.createCommentNode(token.data);
 
         this.treeAdapter.appendChild(parent, commentNode);
@@ -535,14 +593,17 @@ export class Parser<T extends TreeAdapterTypeMap> {
         }
     }
 
-    _adoptNodes(donor: T['parentNode'], recipient: T['parentNode']): void {
+    _adoptNodes(
+        donor: TDocument | TDocumentFragment | TElement,
+        recipient: TDocument | TDocumentFragment | TElement
+    ): void {
         for (let child = this.treeAdapter.getFirstChild(donor); child; child = this.treeAdapter.getFirstChild(donor)) {
             this.treeAdapter.detachNode(child);
             this.treeAdapter.appendChild(recipient, child);
         }
     }
 
-    _setEndLocation(element: T['element'], closingToken: Token): void {
+    _setEndLocation(element: TElement, closingToken: Token): void {
         if (this.treeAdapter.getNodeSourceCodeLocation(element) && closingToken.location) {
             const ctLoc = closingToken.location;
             const tn = this.treeAdapter.getTagName(element);
@@ -568,7 +629,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
 
     //Token processing
     private _shouldProcessTokenInForeignContent(token: Token): boolean {
-        let current: T['parentNode'];
+        let current: TDocument | TDocumentFragment | TElement;
         let currentTagId: number;
 
         if (this.openElements.stackTop === 0 && this.fragmentContext) {
@@ -578,14 +639,14 @@ export class Parser<T extends TreeAdapterTypeMap> {
             ({ current, currentTagId } = this.openElements);
         }
 
-        const ns = this.treeAdapter.getNamespaceURI(current);
+        const ns = this.treeAdapter.getNamespaceURI(current as TElement);
 
         //NOTE: We won't get here with current === document, or ns === NS.HTML
 
         if (
             token.type === TokenType.START_TAG &&
             token.tagID === $.SVG &&
-            this.treeAdapter.getTagName(current) === TN.ANNOTATION_XML &&
+            this.treeAdapter.getTagName(current as TElement) === TN.ANNOTATION_XML &&
             ns === NS.MATHML
         ) {
             return false;
@@ -599,13 +660,16 @@ export class Parser<T extends TreeAdapterTypeMap> {
         const isMathMLTextStartTag =
             token.type === TokenType.START_TAG && token.tagID !== $.MGLYPH && token.tagID !== $.MALIGNMARK;
 
-        if ((isMathMLTextStartTag || isCharacterToken) && this._isIntegrationPoint(currentTagId, current, NS.MATHML)) {
+        if (
+            (isMathMLTextStartTag || isCharacterToken) &&
+            this._isIntegrationPoint(currentTagId, current as TElement, NS.MATHML)
+        ) {
             return false;
         }
 
         if (
             (token.type === TokenType.START_TAG || isCharacterToken) &&
-            this._isIntegrationPoint(currentTagId, current, NS.HTML)
+            this._isIntegrationPoint(currentTagId, current as TElement, NS.HTML)
         ) {
             return false;
         }
@@ -756,7 +820,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Integration points
-    _isIntegrationPoint(tid: $, element: T['element'], foreignNS?: NS): boolean {
+    _isIntegrationPoint(tid: $, element: TElement, foreignNS?: NS): boolean {
         const ns = this.treeAdapter.getNamespaceURI(element);
         const attrs = this.treeAdapter.getAttrList(element);
 
@@ -775,9 +839,9 @@ export class Parser<T extends TreeAdapterTypeMap> {
             const unopenIdx = endIndex < 0 ? listLength - 1 : endIndex - 1;
 
             for (let i = unopenIdx; i >= 0; i--) {
-                const entry = this.activeFormattingElements.entries[i] as ElementEntry<T>;
+                const entry = this.activeFormattingElements.entries[i] as ElementEntry<TElement>;
                 this._insertElement(entry.token, this.treeAdapter.getNamespaceURI(entry.element));
-                entry.element = this.openElements.current;
+                entry.element = this.openElements.current as TElement;
             }
         }
     }
@@ -877,14 +941,20 @@ export class Parser<T extends TreeAdapterTypeMap> {
         return this.fosterParentingEnabled && this._isElementCausesFosterParenting(this.openElements.currentTagId);
     }
 
-    _findFosterParentingLocation(): { parent: T['parentNode']; beforeElement: T['element'] | null } {
+    _findFosterParentingLocation(): {
+        parent: TDocument | TDocumentFragment | TElement;
+        beforeElement: TElement | null;
+    } {
         for (let i = this.openElements.stackTop; i >= 0; i--) {
             const openElement = this.openElements.items[i];
 
             switch (this.openElements.tagIDs[i]) {
                 case $.TEMPLATE:
                     if (this.treeAdapter.getNamespaceURI(openElement) === NS.HTML) {
-                        return { parent: this.treeAdapter.getTemplateContent(openElement), beforeElement: null };
+                        return {
+                            parent: this.treeAdapter.getTemplateContent(openElement as TTemplate),
+                            beforeElement: null,
+                        };
                     }
                     break;
                 case $.TABLE: {
@@ -904,7 +974,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
         return { parent: this.openElements.items[0], beforeElement: null };
     }
 
-    _fosterParentElement(element: T['element']): void {
+    _fosterParentElement(element: TElement): void {
         const location = this._findFosterParentingLocation();
 
         if (location.beforeElement) {
@@ -915,7 +985,7 @@ export class Parser<T extends TreeAdapterTypeMap> {
     }
 
     //Special elements
-    _isSpecialElement(element: T['element'], id: $): boolean {
+    _isSpecialElement(element: TElement, id: $): boolean {
         const ns = this.treeAdapter.getNamespaceURI(element);
 
         return SPECIAL_ELEMENTS[ns].has(id);
@@ -927,10 +997,18 @@ export class Parser<T extends TreeAdapterTypeMap> {
 //------------------------------------------------------------------
 
 //Steps 5-8 of the algorithm
-function aaObtainFormattingElementEntry<T extends TreeAdapterTypeMap>(
-    p: Parser<T>,
+function aaObtainFormattingElementEntry<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
     token: TagToken
-): ElementEntry<T> | null {
+): ElementEntry<TElement> | null {
     let formattingElementEntry = p.activeFormattingElements.getElementEntryInScopeWithTagName(token.tagName);
 
     if (formattingElementEntry) {
@@ -948,10 +1026,18 @@ function aaObtainFormattingElementEntry<T extends TreeAdapterTypeMap>(
 }
 
 //Steps 9 and 10 of the algorithm
-function aaObtainFurthestBlock<T extends TreeAdapterTypeMap>(
-    p: Parser<T>,
-    formattingElementEntry: ElementEntry<T>
-): T['parentNode'] | null {
+function aaObtainFurthestBlock<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    formattingElementEntry: ElementEntry<TElement>
+): TElement | null {
     let furthestBlock = null;
     let idx = p.openElements.stackTop;
 
@@ -972,21 +1058,29 @@ function aaObtainFurthestBlock<T extends TreeAdapterTypeMap>(
         p.activeFormattingElements.removeEntry(formattingElementEntry);
     }
 
-    return furthestBlock;
+    return furthestBlock as TElement;
 }
 
 //Step 13 of the algorithm
-function aaInnerLoop<T extends TreeAdapterTypeMap>(
-    p: Parser<T>,
-    furthestBlock: T['element'],
-    formattingElement: T['element']
-): T['element'] {
+function aaInnerLoop<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    furthestBlock: TElement,
+    formattingElement: TElement
+): TElement {
     let lastElement = furthestBlock;
-    let nextElement = p.openElements.getCommonAncestor(furthestBlock) as T['element'];
+    let nextElement = p.openElements.getCommonAncestor(furthestBlock) as TElement;
 
     for (let i = 0, element = nextElement; element !== formattingElement; i++, element = nextElement) {
         //NOTE: store next element for the next loop iteration (it may be deleted from the stack by step 9.5)
-        nextElement = p.openElements.getCommonAncestor(element) as T['element'];
+        nextElement = p.openElements.getCommonAncestor(element) as TElement;
 
         const elementEntry = p.activeFormattingElements.getElementEntry(element);
         const counterOverflow = elementEntry && i >= AA_INNER_LOOP_ITER;
@@ -1015,10 +1109,18 @@ function aaInnerLoop<T extends TreeAdapterTypeMap>(
 }
 
 //Step 13.7 of the algorithm
-function aaRecreateElementFromEntry<T extends TreeAdapterTypeMap>(
-    p: Parser<T>,
-    elementEntry: ElementEntry<T>
-): T['element'] {
+function aaRecreateElementFromEntry<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    elementEntry: ElementEntry<TElement>
+): TElement {
     const ns = p.treeAdapter.getNamespaceURI(elementEntry.element);
     const newElement = p.treeAdapter.createElement(elementEntry.token.tagName, ns, elementEntry.token.attrs);
 
@@ -1029,21 +1131,32 @@ function aaRecreateElementFromEntry<T extends TreeAdapterTypeMap>(
 }
 
 //Step 14 of the algorithm
-function aaInsertLastNodeInCommonAncestor<T extends TreeAdapterTypeMap>(
-    p: Parser<T>,
-    commonAncestor: T['parentNode'],
-    lastElement: T['element']
+function aaInsertLastNodeInCommonAncestor<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    commonAncestor: TDocument | TDocumentFragment | TElement,
+    lastElement: TElement
 ): void {
-    const tn = p.treeAdapter.getTagName(commonAncestor);
+    // TODO (43081j): shouldn't need to cast, fix the types.
+    const tn = p.treeAdapter.getTagName(commonAncestor as TElement);
     const tid = getTagID(tn);
 
     if (p._isElementCausesFosterParenting(tid)) {
         p._fosterParentElement(lastElement);
     } else {
-        const ns = p.treeAdapter.getNamespaceURI(commonAncestor);
+        // TODO (43081j): shouldn't need to cast, fix the types.
+        const ns = p.treeAdapter.getNamespaceURI(commonAncestor as TElement);
 
         if (tid === $.TEMPLATE && ns === NS.HTML) {
-            commonAncestor = p.treeAdapter.getTemplateContent(commonAncestor);
+            // TODO (43081j): shouldn't need to cast, fix the types.
+            commonAncestor = p.treeAdapter.getTemplateContent(commonAncestor as TTemplate);
         }
 
         p.treeAdapter.appendChild(commonAncestor, lastElement);
@@ -1051,10 +1164,18 @@ function aaInsertLastNodeInCommonAncestor<T extends TreeAdapterTypeMap>(
 }
 
 //Steps 15-19 of the algorithm
-function aaReplaceFormattingElement<T extends TreeAdapterTypeMap>(
-    p: Parser<T>,
-    furthestBlock: T['parentNode'],
-    formattingElementEntry: ElementEntry<T>
+function aaReplaceFormattingElement<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    furthestBlock: TDocument | TDocumentFragment | TElement,
+    formattingElementEntry: ElementEntry<TElement>
 ): void {
     const ns = p.treeAdapter.getNamespaceURI(formattingElementEntry.element);
     const { token } = formattingElementEntry;
@@ -1067,11 +1188,23 @@ function aaReplaceFormattingElement<T extends TreeAdapterTypeMap>(
     p.activeFormattingElements.removeEntry(formattingElementEntry);
 
     p.openElements.remove(formattingElementEntry.element);
-    p.openElements.insertAfter(furthestBlock, newElement, token.tagID);
+    // TODO (43081j): shouldn't need to cast, fix the types.
+    p.openElements.insertAfter(furthestBlock as TElement, newElement, token.tagID);
 }
 
 //Algorithm entry point
-function callAdoptionAgency<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function callAdoptionAgency<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     for (let i = 0; i < AA_OUTER_LOOP_ITER; i++) {
         const formattingElementEntry = aaObtainFormattingElementEntry(p, token);
 
@@ -1079,7 +1212,15 @@ function callAdoptionAgency<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
             break;
         }
 
-        const furthestBlock = aaObtainFurthestBlock(p, formattingElementEntry);
+        const furthestBlock = aaObtainFurthestBlock<
+            TDocument,
+            TElement,
+            TDocumentType,
+            TCommentNode,
+            TTextNode,
+            TDocumentFragment,
+            TTemplate
+        >(p, formattingElementEntry);
 
         if (!furthestBlock) {
             break;
@@ -1087,30 +1228,92 @@ function callAdoptionAgency<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 
         p.activeFormattingElements.bookmark = formattingElementEntry;
 
-        const lastElement = aaInnerLoop(p, furthestBlock, formattingElementEntry.element);
+        const lastElement = aaInnerLoop<
+            TDocument,
+            TElement,
+            TDocumentType,
+            TCommentNode,
+            TTextNode,
+            TDocumentFragment,
+            TTemplate
+        >(p, furthestBlock, formattingElementEntry.element);
         const commonAncestor = p.openElements.getCommonAncestor(formattingElementEntry.element);
 
         p.treeAdapter.detachNode(lastElement);
-        if (commonAncestor) aaInsertLastNodeInCommonAncestor(p, commonAncestor, lastElement);
+        if (commonAncestor) {
+            aaInsertLastNodeInCommonAncestor<
+                TDocument,
+                TElement,
+                TDocumentType,
+                TCommentNode,
+                TTextNode,
+                TDocumentFragment,
+                TTemplate
+            >(p, commonAncestor, lastElement);
+        }
         aaReplaceFormattingElement(p, furthestBlock, formattingElementEntry);
     }
 }
 
 //Generic token handlers
 //------------------------------------------------------------------
-function appendComment<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CommentToken): void {
+function appendComment<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CommentToken
+): void {
     p._appendCommentNode(token, p.openElements.currentTmplContentOrNode);
 }
 
-function appendCommentToRootHtmlElement<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CommentToken): void {
+function appendCommentToRootHtmlElement<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CommentToken
+): void {
     p._appendCommentNode(token, p.openElements.items[0]);
 }
 
-function appendCommentToDocument<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CommentToken): void {
+function appendCommentToDocument<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CommentToken
+): void {
     p._appendCommentNode(token, p.document);
 }
 
-function stopParsing<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken): void {
+function stopParsing<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: EOFToken
+): void {
     p.stopped = true;
 
     if (token.location) {
@@ -1124,7 +1327,18 @@ function stopParsing<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken
 
 // The "initial" insertion mode
 //------------------------------------------------------------------
-function modeInitial<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInitial<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.COMMENT: {
             appendComment(p, token);
@@ -1144,7 +1358,18 @@ function modeInitial<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): 
     }
 }
 
-function doctypeInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token: DoctypeToken): void {
+function doctypeInInitialMode<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: DoctypeToken
+): void {
     p._setDocumentType(token);
 
     const mode = token.forceQuirks ? DOCUMENT_MODE.QUIRKS : doctype.getDocumentMode(token);
@@ -1158,7 +1383,18 @@ function doctypeInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     p.insertionMode = InsertionMode.BEFORE_HTML;
 }
 
-function tokenInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenInInitialMode<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     p._err(token, ERR.missingDoctype, true);
     p.treeAdapter.setDocumentMode(p.document, DOCUMENT_MODE.QUIRKS);
     p.insertionMode = InsertionMode.BEFORE_HTML;
@@ -1167,7 +1403,18 @@ function tokenInInitialMode<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 
 // The "before html" insertion mode
 //------------------------------------------------------------------
-function modeBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeBeforeHtml<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -1192,7 +1439,18 @@ function modeBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
     }
 }
 
-function startTagBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagBeforeHtml<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.HTML) {
         p._insertElement(token, NS.HTML);
         p.insertionMode = InsertionMode.BEFORE_HEAD;
@@ -1201,7 +1459,18 @@ function startTagBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function endTagBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagBeforeHtml<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (tn === $.HTML || tn === $.HEAD || tn === $.BODY || tn === $.BR) {
@@ -1209,7 +1478,18 @@ function endTagBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     }
 }
 
-function tokenBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenBeforeHtml<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     p._insertFakeRootElement();
     p.insertionMode = InsertionMode.BEFORE_HEAD;
     modeBeforeHead(p, token);
@@ -1217,7 +1497,18 @@ function tokenBeforeHtml<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Toke
 
 // The "before head" insertion mode
 //------------------------------------------------------------------
-function modeBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeBeforeHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -1246,7 +1537,18 @@ function modeBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
     }
 }
 
-function startTagBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagBeforeHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -1254,7 +1556,7 @@ function startTagBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
         }
         case $.HEAD: {
             p._insertElement(token, NS.HTML);
-            p.headElement = p.openElements.current;
+            p.headElement = p.openElements.current as TElement;
             p.insertionMode = InsertionMode.IN_HEAD;
             break;
         }
@@ -1264,7 +1566,18 @@ function startTagBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function endTagBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagBeforeHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (tn === $.HEAD || tn === $.BODY || tn === $.HTML || tn === $.BR) {
@@ -1274,16 +1587,38 @@ function endTagBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     }
 }
 
-function tokenBeforeHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenBeforeHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     p._insertFakeElement(TN.HEAD, $.HEAD);
-    p.headElement = p.openElements.current;
+    p.headElement = p.openElements.current as TElement;
     p.insertionMode = InsertionMode.IN_HEAD;
     modeInHead(p, token);
 }
 
 // The "in head" insertion mode
 //------------------------------------------------------------------
-function modeInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -1316,7 +1651,18 @@ function modeInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): v
     }
 }
 
-function startTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -1371,7 +1717,18 @@ function startTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
     }
 }
 
-function endTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HEAD: {
             p.openElements.pop();
@@ -1407,7 +1764,18 @@ function endTagInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
     }
 }
 
-function tokenInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenInHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     p.openElements.pop();
     p.insertionMode = InsertionMode.AFTER_HEAD;
     modeAfterHead(p, token);
@@ -1415,7 +1783,18 @@ function tokenInHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): 
 
 // The "in head no script" insertion mode
 //------------------------------------------------------------------
-function modeInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInHeadNoScript<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -1448,7 +1827,18 @@ function modeInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function startTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInHeadNoScript<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -1474,7 +1864,18 @@ function startTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     }
 }
 
-function endTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInHeadNoScript<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.NOSCRIPT: {
             p.openElements.pop();
@@ -1491,7 +1892,18 @@ function endTagInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     }
 }
 
-function tokenInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenInHeadNoScript<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     const errCode = token.type === TokenType.EOF ? ERR.openElementsLeftAfterEof : ERR.disallowedContentInNoscriptInHead;
 
     p._err(token, errCode);
@@ -1502,7 +1914,18 @@ function tokenInHeadNoScript<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 
 // The "after head" insertion mode
 //------------------------------------------------------------------
-function modeAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeAfterHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -1535,7 +1958,18 @@ function modeAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
     }
 }
 
-function startTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagAfterHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -1578,7 +2012,18 @@ function startTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
     }
 }
 
-function endTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagAfterHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.BODY:
         case $.HTML:
@@ -1596,7 +2041,18 @@ function endTagAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
     }
 }
 
-function tokenAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenAfterHead<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     p._insertFakeElement(TN.BODY, $.BODY);
     p.insertionMode = InsertionMode.IN_BODY;
     modeInBody(p, token);
@@ -1604,7 +2060,18 @@ function tokenAfterHead<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
 
 // The "in body" insertion mode
 //------------------------------------------------------------------
-function modeInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER: {
             characterInBody(p, token);
@@ -1635,24 +2102,68 @@ function modeInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): v
     }
 }
 
-function whitespaceCharacterInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken): void {
+function whitespaceCharacterInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CharacterToken
+): void {
     p._reconstructActiveFormattingElements();
     p._insertCharacters(token);
 }
 
-function characterInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken): void {
+function characterInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CharacterToken
+): void {
     p._reconstructActiveFormattingElements();
     p._insertCharacters(token);
     p.framesetOk = false;
 }
 
-function htmlStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function htmlStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.tmplCount === 0) {
         p.treeAdapter.adoptAttributes(p.openElements.items[0], token.attrs);
     }
 }
 
-function bodyStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function bodyStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const bodyElement = p.openElements.tryPeekProperlyNestedBodyElement();
 
     if (bodyElement && p.openElements.tmplCount === 0) {
@@ -1661,7 +2172,18 @@ function bodyStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function framesetStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function framesetStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const bodyElement = p.openElements.tryPeekProperlyNestedBodyElement();
 
     if (p.framesetOk && bodyElement) {
@@ -1672,7 +2194,18 @@ function framesetStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     }
 }
 
-function addressStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function addressStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInButtonScope($.P)) {
         p._closePElement();
     }
@@ -1680,7 +2213,18 @@ function addressStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token
     p._insertElement(token, NS.HTML);
 }
 
-function numberedHeaderStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function numberedHeaderStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInButtonScope($.P)) {
         p._closePElement();
     }
@@ -1692,7 +2236,18 @@ function numberedHeaderStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>
     p._insertElement(token, NS.HTML);
 }
 
-function preStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function preStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInButtonScope($.P)) {
         p._closePElement();
     }
@@ -1704,7 +2259,18 @@ function preStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
     p.framesetOk = false;
 }
 
-function formStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function formStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const inTemplate = p.openElements.tmplCount > 0;
 
     if (!p.formElement || inTemplate) {
@@ -1715,12 +2281,23 @@ function formStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
         p._insertElement(token, NS.HTML);
 
         if (!inTemplate) {
-            p.formElement = p.openElements.current;
+            p.formElement = p.openElements.current as TElement;
         }
     }
 }
 
-function listItemStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function listItemStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p.framesetOk = false;
 
     const tn = token.tagID;
@@ -1761,7 +2338,18 @@ function listItemStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     p._insertElement(token, NS.HTML);
 }
 
-function plaintextStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function plaintextStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInButtonScope($.P)) {
         p._closePElement();
     }
@@ -1770,7 +2358,18 @@ function plaintextStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, tok
     p.tokenizer.state = TokenizerMode.PLAINTEXT;
 }
 
-function buttonStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function buttonStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInScope($.BUTTON)) {
         p.openElements.generateImpliedEndTags();
         p.openElements.popUntilTagNamePopped($.BUTTON);
@@ -1781,7 +2380,18 @@ function buttonStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     p.framesetOk = false;
 }
 
-function aStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function aStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const activeElementEntry = p.activeFormattingElements.getElementEntryInScopeWithTagName(TN.A);
 
     if (activeElementEntry) {
@@ -1792,16 +2402,38 @@ function aStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
 
     p._reconstructActiveFormattingElements();
     p._insertElement(token, NS.HTML);
-    p.activeFormattingElements.pushElement(p.openElements.current, token);
+    p.activeFormattingElements.pushElement(p.openElements.current as TElement, token);
 }
 
-function bStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function bStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
     p._insertElement(token, NS.HTML);
-    p.activeFormattingElements.pushElement(p.openElements.current, token);
+    p.activeFormattingElements.pushElement(p.openElements.current as TElement, token);
 }
 
-function nobrStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function nobrStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
 
     if (p.openElements.hasInScope($.NOBR)) {
@@ -1810,17 +2442,39 @@ function nobrStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 
     p._insertElement(token, NS.HTML);
-    p.activeFormattingElements.pushElement(p.openElements.current, token);
+    p.activeFormattingElements.pushElement(p.openElements.current as TElement, token);
 }
 
-function appletStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function appletStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
     p._insertElement(token, NS.HTML);
     p.activeFormattingElements.insertMarker();
     p.framesetOk = false;
 }
 
-function tableStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function tableStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.treeAdapter.getDocumentMode(p.document) !== DOCUMENT_MODE.QUIRKS && p.openElements.hasInButtonScope($.P)) {
         p._closePElement();
     }
@@ -1830,7 +2484,18 @@ function tableStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
     p.insertionMode = InsertionMode.IN_TABLE;
 }
 
-function areaStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function areaStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
     p._appendElement(token, NS.HTML);
     p.framesetOk = false;
@@ -1843,7 +2508,18 @@ function isHiddenInput(token: TagToken): boolean {
     return inputType != null && inputType.toLowerCase() === HIDDEN_INPUT_TYPE;
 }
 
-function inputStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function inputStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
     p._appendElement(token, NS.HTML);
 
@@ -1854,12 +2530,34 @@ function inputStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
     token.ackSelfClosing = true;
 }
 
-function paramStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function paramStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._appendElement(token, NS.HTML);
     token.ackSelfClosing = true;
 }
 
-function hrStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function hrStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInButtonScope($.P)) {
         p._closePElement();
     }
@@ -1869,13 +2567,35 @@ function hrStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     token.ackSelfClosing = true;
 }
 
-function imageStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function imageStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     token.tagName = TN.IMG;
     token.tagID = $.IMG;
     areaStartTagInBody(p, token);
 }
 
-function textareaStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function textareaStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._insertElement(token, NS.HTML);
     //NOTE: If the next token is a U+000A LINE FEED (LF) character token, then ignore that token and move
     //on to the next one. (Newlines at the start of textarea elements are ignored as an authoring convenience.)
@@ -1886,7 +2606,18 @@ function textareaStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     p.insertionMode = InsertionMode.TEXT;
 }
 
-function xmpStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function xmpStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInButtonScope($.P)) {
         p._closePElement();
     }
@@ -1896,18 +2627,51 @@ function xmpStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
     p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
 }
 
-function iframeStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function iframeStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p.framesetOk = false;
     p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
 }
 
 //NOTE: here we assume that we always act as an user agent with enabled plugins, so we parse
 //<noembed> as a rawtext.
-function noembedStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function noembedStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._switchToTextParsing(token, TokenizerMode.RAWTEXT);
 }
 
-function selectStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function selectStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
     p._insertElement(token, NS.HTML);
     p.framesetOk = false;
@@ -1922,7 +2686,18 @@ function selectStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
             : InsertionMode.IN_SELECT;
 }
 
-function optgroupStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function optgroupStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.currentTagId === $.OPTION) {
         p.openElements.pop();
     }
@@ -1931,7 +2706,18 @@ function optgroupStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     p._insertElement(token, NS.HTML);
 }
 
-function rbStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function rbStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInScope($.RUBY)) {
         p.openElements.generateImpliedEndTags();
     }
@@ -1939,7 +2725,18 @@ function rbStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     p._insertElement(token, NS.HTML);
 }
 
-function rtStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function rtStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInScope($.RUBY)) {
         p.openElements.generateImpliedEndTagsWithExclusion(TN.RTC);
     }
@@ -1947,7 +2744,18 @@ function rtStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     p._insertElement(token, NS.HTML);
 }
 
-function mathStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function mathStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
 
     foreignContent.adjustTokenMathMLAttrs(token);
@@ -1962,7 +2770,18 @@ function mathStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     token.ackSelfClosing = true;
 }
 
-function svgStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function svgStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
 
     foreignContent.adjustTokenSVGAttrs(token);
@@ -1977,12 +2796,34 @@ function svgStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
     token.ackSelfClosing = true;
 }
 
-function genericStartTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function genericStartTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p._reconstructActiveFormattingElements();
     p._insertElement(token, NS.HTML);
 }
 
-function startTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.I:
         case $.S:
@@ -2199,7 +3040,18 @@ function startTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
     }
 }
 
-function bodyEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function bodyEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInScope($.BODY)) {
         p.insertionMode = InsertionMode.AFTER_BODY;
 
@@ -2214,14 +3066,36 @@ function bodyEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     }
 }
 
-function htmlEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function htmlEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInScope($.BODY)) {
         p.insertionMode = InsertionMode.AFTER_BODY;
         modeAfterBody(p, token);
     }
 }
 
-function addressEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function addressEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (p.openElements.hasInScope(tn)) {
@@ -2230,7 +3104,15 @@ function addressEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
     }
 }
 
-function formEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>): void {
+function formEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>): void {
     const inTemplate = p.openElements.tmplCount > 0;
     const { formElement } = p;
 
@@ -2249,7 +3131,15 @@ function formEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>): void {
     }
 }
 
-function pEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>): void {
+function pEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>): void {
     if (!p.openElements.hasInButtonScope($.P)) {
         p._insertFakeElement(TN.P, $.P);
     }
@@ -2257,14 +3147,33 @@ function pEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>): void {
     p._closePElement();
 }
 
-function liEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>): void {
+function liEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>): void {
     if (p.openElements.hasInListItemScope($.LI)) {
         p.openElements.generateImpliedEndTagsWithExclusion(TN.LI);
         p.openElements.popUntilTagNamePopped($.LI);
     }
 }
 
-function ddEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function ddEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (p.openElements.hasInScope(tn)) {
@@ -2273,14 +3182,33 @@ function ddEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
     }
 }
 
-function numberedHeaderEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>): void {
+function numberedHeaderEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>): void {
     if (p.openElements.hasNumberedHeaderInScope()) {
         p.openElements.generateImpliedEndTags();
         p.openElements.popUntilNumberedHeaderPopped();
     }
 }
 
-function appletEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function appletEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (p.openElements.hasInScope(tn)) {
@@ -2290,14 +3218,33 @@ function appletEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function brEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>): void {
+function brEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>): void {
     p._reconstructActiveFormattingElements();
     p._insertFakeElement(TN.BR, $.BR);
     p.openElements.pop();
     p.framesetOk = false;
 }
 
-function genericEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function genericEndTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagName;
     const tid = token.tagID;
 
@@ -2318,7 +3265,18 @@ function genericEndTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
     }
 }
 
-function endTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.A:
         case $.B:
@@ -2419,7 +3377,18 @@ function endTagInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
     }
 }
 
-function eofInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken): void {
+function eofInBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: EOFToken
+): void {
     if (p.tmplInsertionModeStack.length > 0) {
         eofInTemplate(p, token);
     } else {
@@ -2429,7 +3398,18 @@ function eofInBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken):
 
 // The "text" insertion mode
 //------------------------------------------------------------------
-function modeText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeText<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -2450,16 +3430,38 @@ function modeText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): voi
     }
 }
 
-function endTagInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInText<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.SCRIPT) {
-        p.pendingScript = p.openElements.current;
+        p.pendingScript = p.openElements.current as TElement;
     }
 
     p.openElements.pop();
     p.insertionMode = p.originalInsertionMode;
 }
 
-function eofInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken): void {
+function eofInText<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: EOFToken
+): void {
     p._err(token, ERR.eofInElementThatCanContainOnlyText);
     p.openElements.pop();
     p.insertionMode = p.originalInsertionMode;
@@ -2468,7 +3470,18 @@ function eofInText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken):
 
 // The "in table" insertion mode
 //------------------------------------------------------------------
-function modeInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -2497,7 +3510,18 @@ function modeInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): 
     }
 }
 
-function characterInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken): void {
+function characterInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CharacterToken
+): void {
     if (TABLE_STRUCTURE_TAGS.has(p.openElements.currentTagId)) {
         p.pendingCharacterTokens = [];
         p.hasNonWhitespacePendingCharacterToken = false;
@@ -2509,40 +3533,106 @@ function characterInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Cha
     }
 }
 
-function captionStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function captionStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p.openElements.clearBackToTableContext();
     p.activeFormattingElements.insertMarker();
     p._insertElement(token, NS.HTML);
     p.insertionMode = InsertionMode.IN_CAPTION;
 }
 
-function colgroupStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function colgroupStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p.openElements.clearBackToTableContext();
     p._insertElement(token, NS.HTML);
     p.insertionMode = InsertionMode.IN_COLUMN_GROUP;
 }
 
-function colStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function colStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p.openElements.clearBackToTableContext();
     p._insertFakeElement(TN.COLGROUP, $.COLGROUP);
     p.insertionMode = InsertionMode.IN_COLUMN_GROUP;
     modeInColumnGroup(p, token);
 }
 
-function tbodyStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function tbodyStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p.openElements.clearBackToTableContext();
     p._insertElement(token, NS.HTML);
     p.insertionMode = InsertionMode.IN_TABLE_BODY;
 }
 
-function tdStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function tdStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     p.openElements.clearBackToTableContext();
     p._insertFakeElement(TN.TBODY, $.TBODY);
     p.insertionMode = InsertionMode.IN_TABLE_BODY;
     modeInTableBody(p, token);
 }
 
-function tableStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function tableStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (p.openElements.hasInTableScope($.TABLE)) {
         p.openElements.popUntilTagNamePopped($.TABLE);
         p._resetInsertionMode();
@@ -2550,7 +3640,18 @@ function tableStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     }
 }
 
-function inputStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function inputStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (isHiddenInput(token)) {
         p._appendElement(token, NS.HTML);
     } else {
@@ -2560,15 +3661,37 @@ function inputStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token:
     token.ackSelfClosing = true;
 }
 
-function formStartTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function formStartTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (!p.formElement && p.openElements.tmplCount === 0) {
         p._insertElement(token, NS.HTML);
-        p.formElement = p.openElements.current;
+        p.formElement = p.openElements.current as TElement;
         p.openElements.pop();
     }
 }
 
-function startTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.TD:
         case $.TH:
@@ -2618,7 +3741,18 @@ function startTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
     }
 }
 
-function endTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.TABLE: {
             if (p.openElements.hasInTableScope($.TABLE)) {
@@ -2651,7 +3785,18 @@ function endTagInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTok
     }
 }
 
-function tokenInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     const savedFosterParentingState = p.fosterParentingEnabled;
 
     p.fosterParentingEnabled = true;
@@ -2662,7 +3807,18 @@ function tokenInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token):
 
 // The "in table text" insertion mode
 //------------------------------------------------------------------
-function modeInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInTableText<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER: {
             characterInTableText(p, token);
@@ -2682,16 +3838,49 @@ function modeInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Toke
     }
 }
 
-function whitespaceCharacterInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken): void {
+function whitespaceCharacterInTableText<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CharacterToken
+): void {
     p.pendingCharacterTokens.push(token);
 }
 
-function characterInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken): void {
+function characterInTableText<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CharacterToken
+): void {
     p.pendingCharacterTokens.push(token);
     p.hasNonWhitespacePendingCharacterToken = true;
 }
 
-function tokenInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenInTableText<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     let i = 0;
 
     if (p.hasNonWhitespacePendingCharacterToken) {
@@ -2710,7 +3899,18 @@ function tokenInTableText<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tok
 
 // The "in caption" insertion mode
 //------------------------------------------------------------------
-function modeInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInCaption<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER: {
             characterInBody(p, token);
@@ -2743,7 +3943,18 @@ function modeInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
 
 const TABLE_VOID_ELEMENTS = new Set([$.CAPTION, $.COL, $.COLGROUP, $.TBODY, $.TD, $.TFOOT, $.TH, $.THEAD, $.TR]);
 
-function startTagInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInCaption<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (TABLE_VOID_ELEMENTS.has(tn)) {
@@ -2759,7 +3970,18 @@ function startTagInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
     }
 }
 
-function endTagInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInCaption<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     switch (tn) {
@@ -2798,7 +4020,18 @@ function endTagInCaption<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
 
 // The "in column group" insertion mode
 //------------------------------------------------------------------
-function modeInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInColumnGroup<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER: {
@@ -2830,7 +4063,18 @@ function modeInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: To
     }
 }
 
-function startTagInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInColumnGroup<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -2851,7 +4095,18 @@ function startTagInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token
     }
 }
 
-function endTagInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInColumnGroup<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.COLGROUP: {
             if (p.openElements.currentTagId === $.COLGROUP) {
@@ -2874,7 +4129,18 @@ function endTagInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
     }
 }
 
-function tokenInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenInColumnGroup<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     if (p.openElements.currentTagId === $.COLGROUP) {
         p.openElements.pop();
         p.insertionMode = InsertionMode.IN_TABLE;
@@ -2884,7 +4150,18 @@ function tokenInColumnGroup<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
 
 // The "in table body" insertion mode
 //------------------------------------------------------------------
-function modeInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInTableBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -2913,7 +4190,18 @@ function modeInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Toke
     }
 }
 
-function startTagInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInTableBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.TR: {
             p.openElements.clearBackToTableBodyContext();
@@ -2949,7 +4237,18 @@ function startTagInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
     }
 }
 
-function endTagInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInTableBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     switch (token.tagID) {
@@ -2991,7 +4290,18 @@ function endTagInTableBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
 
 // The "in row" insertion mode
 //------------------------------------------------------------------
-function modeInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInRow<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -3020,7 +4330,18 @@ function modeInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): vo
     }
 }
 
-function startTagInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInRow<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.TH:
         case $.TD: {
@@ -3051,7 +4372,18 @@ function startTagInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTok
     }
 }
 
-function endTagInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInRow<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.TR: {
             if (p.openElements.hasInTableScope($.TR)) {
@@ -3098,7 +4430,18 @@ function endTagInRow<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken
 
 // The "in cell" insertion mode
 //------------------------------------------------------------------
-function modeInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInCell<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER: {
             characterInBody(p, token);
@@ -3129,7 +4472,18 @@ function modeInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): v
     }
 }
 
-function startTagInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInCell<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (TABLE_VOID_ELEMENTS.has(tn)) {
@@ -3142,7 +4496,18 @@ function startTagInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
     }
 }
 
-function endTagInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInCell<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     switch (tn) {
@@ -3183,7 +4548,18 @@ function endTagInCell<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToke
 
 // The "in select" insertion mode
 //------------------------------------------------------------------
-function modeInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInSelect<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.WHITESPACE_CHARACTER: {
@@ -3211,7 +4587,18 @@ function modeInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token):
     }
 }
 
-function startTagInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInSelect<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -3261,7 +4648,18 @@ function startTagInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
     }
 }
 
-function endTagInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInSelect<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.OPTGROUP: {
             if (
@@ -3301,7 +4699,18 @@ function endTagInSelect<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagTo
 
 // The "in select in table" insertion mode
 //------------------------------------------------------------------
-function modeInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInSelectInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.WHITESPACE_CHARACTER: {
@@ -3329,7 +4738,18 @@ function modeInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
     }
 }
 
-function startTagInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInSelectInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (
@@ -3350,7 +4770,18 @@ function startTagInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, tok
     }
 }
 
-function endTagInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInSelectInTable<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     const tn = token.tagID;
 
     if (
@@ -3375,7 +4806,18 @@ function endTagInSelectInTable<T extends TreeAdapterTypeMap>(p: Parser<T>, token
 
 // The "in template" insertion mode
 //------------------------------------------------------------------
-function modeInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInTemplate<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER: {
             characterInBody(p, token);
@@ -3406,7 +4848,18 @@ function modeInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
     }
 }
 
-function startTagInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInTemplate<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         // First, handle tags that can start without a mode change
         case $.BASE:
@@ -3455,13 +4908,35 @@ function startTagInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function endTagInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInTemplate<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.TEMPLATE) {
         endTagInHead(p, token);
     }
 }
 
-function eofInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFToken): void {
+function eofInTemplate<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: EOFToken
+): void {
     if (p.openElements.tmplCount > 0) {
         p.openElements.popUntilTagNamePopped($.TEMPLATE);
         p.activeFormattingElements.clearToLastMarker();
@@ -3475,7 +4950,18 @@ function eofInTemplate<T extends TreeAdapterTypeMap>(p: Parser<T>, token: EOFTok
 
 // The "after body" insertion mode
 //------------------------------------------------------------------
-function modeAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeAfterBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER: {
@@ -3507,7 +4993,18 @@ function modeAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token)
     }
 }
 
-function startTagAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagAfterBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.HTML) {
         startTagInBody(p, token);
     } else {
@@ -3515,7 +5012,18 @@ function startTagAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Ta
     }
 }
 
-function endTagAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagAfterBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.HTML) {
         if (!p.fragmentContext) {
             p.insertionMode = InsertionMode.AFTER_AFTER_BODY;
@@ -3531,14 +5039,36 @@ function endTagAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagT
     }
 }
 
-function tokenAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenAfterBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     p.insertionMode = InsertionMode.IN_BODY;
     modeInBody(p, token);
 }
 
 // The "in frameset" insertion mode
 //------------------------------------------------------------------
-function modeInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeInFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.WHITESPACE_CHARACTER: {
             p._insertCharacters(token);
@@ -3565,7 +5095,18 @@ function modeInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token
     }
 }
 
-function startTagInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -3589,7 +5130,18 @@ function startTagInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function endTagInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.FRAMESET && !p.openElements.isRootHtmlElementCurrent()) {
         p.openElements.pop();
 
@@ -3601,7 +5153,18 @@ function endTagInFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Tag
 
 // The "after frameset" insertion mode
 //------------------------------------------------------------------
-function modeAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeAfterFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.WHITESPACE_CHARACTER: {
             p._insertCharacters(token);
@@ -3628,7 +5191,18 @@ function modeAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: To
     }
 }
 
-function startTagAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagAfterFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -3643,7 +5217,18 @@ function startTagAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token
     }
 }
 
-function endTagAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagAfterFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.HTML) {
         p.insertionMode = InsertionMode.AFTER_AFTER_FRAMESET;
     }
@@ -3651,7 +5236,18 @@ function endTagAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: 
 
 // The "after after body" insertion mode
 //------------------------------------------------------------------
-function modeAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeAfterAfterBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.CHARACTER:
         case TokenType.NULL_CHARACTER:
@@ -3680,7 +5276,18 @@ function modeAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: T
     }
 }
 
-function startTagAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagAfterAfterBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (token.tagID === $.HTML) {
         startTagInBody(p, token);
     } else {
@@ -3688,14 +5295,36 @@ function startTagAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     }
 }
 
-function tokenAfterAfterBody<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function tokenAfterAfterBody<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     p.insertionMode = InsertionMode.IN_BODY;
     modeInBody(p, token);
 }
 
 // The "after after frameset" insertion mode
 //------------------------------------------------------------------
-function modeAfterAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: Token): void {
+function modeAfterAfterFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: Token
+): void {
     switch (token.type) {
         case TokenType.WHITESPACE_CHARACTER: {
             whitespaceCharacterInBody(p, token);
@@ -3718,7 +5347,18 @@ function modeAfterAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, toke
     }
 }
 
-function startTagAfterAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagAfterAfterFrameset<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     switch (token.tagID) {
         case $.HTML: {
             startTagInBody(p, token);
@@ -3735,21 +5375,54 @@ function startTagAfterAfterFrameset<T extends TreeAdapterTypeMap>(p: Parser<T>, 
 
 // The rules for parsing tokens in foreign content
 //------------------------------------------------------------------
-function nullCharacterInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken): void {
+function nullCharacterInForeignContent<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CharacterToken
+): void {
     token.chars = unicode.REPLACEMENT_CHARACTER;
     p._insertCharacters(token);
 }
 
-function characterInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, token: CharacterToken): void {
+function characterInForeignContent<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: CharacterToken
+): void {
     p._insertCharacters(token);
     p.framesetOk = false;
 }
 
-function startTagInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function startTagInForeignContent<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     if (foreignContent.causesExit(token) && !p.fragmentContext) {
         while (
-            p.treeAdapter.getNamespaceURI(p.openElements.current) !== NS.HTML &&
-            !p._isIntegrationPoint(p.openElements.currentTagId, p.openElements.current)
+            p.treeAdapter.getNamespaceURI(p.openElements.current as TElement) !== NS.HTML &&
+            !p._isIntegrationPoint(p.openElements.currentTagId, p.openElements.current as TElement)
         ) {
             p.openElements.pop();
         }
@@ -3757,7 +5430,7 @@ function startTagInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, to
         p._processToken(token);
     } else {
         const current = p._getAdjustedCurrentElement();
-        const currentNs = p.treeAdapter.getNamespaceURI(current);
+        const currentNs = p.treeAdapter.getNamespaceURI(current as TElement);
 
         if (currentNs === NS.MATHML) {
             foreignContent.adjustTokenMathMLAttrs(token);
@@ -3778,7 +5451,18 @@ function startTagInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, to
     }
 }
 
-function endTagInForeignContent<T extends TreeAdapterTypeMap>(p: Parser<T>, token: TagToken): void {
+function endTagInForeignContent<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    p: Parser<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    token: TagToken
+): void {
     for (let i = p.openElements.stackTop; i > 0; i--) {
         const element = p.openElements.items[i];
 

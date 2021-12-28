@@ -1,5 +1,5 @@
 import type { Attribute, TagToken } from '../common/token.js';
-import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface';
+import type { TreeAdapter } from '../tree-adapters/interface';
 
 //Const
 const NOAH_ARK_CAPACITY = 3;
@@ -13,28 +13,46 @@ interface MarkerEntry {
     type: EntryType.Marker;
 }
 
-export interface ElementEntry<T extends TreeAdapterTypeMap> {
+export interface ElementEntry<T> {
     type: EntryType.Element;
-    element: T['element'];
+    element: T;
     token: TagToken;
 }
 
-export type Entry<T extends TreeAdapterTypeMap> = MarkerEntry | ElementEntry<T>;
+export type Entry<T> = MarkerEntry | ElementEntry<T>;
 
 const MARKER: MarkerEntry = { type: EntryType.Marker };
 
 //List of formatting elements
-export class FormattingElementList<T extends TreeAdapterTypeMap> {
-    entries: Entry<T>[] = [];
-    bookmark: Entry<T> | null = null;
+export class FormattingElementList<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+> {
+    entries: Entry<TElement>[] = [];
+    bookmark: Entry<TElement> | null = null;
 
-    constructor(private treeAdapter: TreeAdapter<T>) {}
+    constructor(
+        private treeAdapter: TreeAdapter<
+            TDocument,
+            TElement,
+            TDocumentType,
+            TCommentNode,
+            TTextNode,
+            TDocumentFragment,
+            TTemplate
+        >
+    ) {}
 
     //Noah Ark's condition
     //OPTIMIZATION: at first we try to find possible candidates for exclusion using
     //lightweight heuristics without thorough attributes check.
     private _getNoahArkConditionCandidates(
-        newElement: T['element'],
+        newElement: TElement,
         neAttrs: Attribute[]
     ): { idx: number; attrs: Attribute[] }[] {
         const candidates = [];
@@ -67,7 +85,7 @@ export class FormattingElementList<T extends TreeAdapterTypeMap> {
         return candidates;
     }
 
-    private _ensureNoahArkCondition(newElement: T['element']): void {
+    private _ensureNoahArkCondition(newElement: TElement): void {
         if (this.entries.length < NOAH_ARK_CAPACITY) return;
 
         const neAttrs = this.treeAdapter.getAttrList(newElement);
@@ -99,7 +117,7 @@ export class FormattingElementList<T extends TreeAdapterTypeMap> {
         this.entries.unshift(MARKER);
     }
 
-    pushElement(element: T['element'], token: TagToken): void {
+    pushElement(element: TElement, token: TagToken): void {
         this._ensureNoahArkCondition(element);
 
         this.entries.unshift({
@@ -109,7 +127,7 @@ export class FormattingElementList<T extends TreeAdapterTypeMap> {
         });
     }
 
-    insertElementAfterBookmark(element: T['element'], token: TagToken): void {
+    insertElementAfterBookmark(element: TElement, token: TagToken): void {
         const bookmarkIdx = this.entries.indexOf(this.bookmark!);
 
         this.entries.splice(bookmarkIdx, 0, {
@@ -119,7 +137,7 @@ export class FormattingElementList<T extends TreeAdapterTypeMap> {
         });
     }
 
-    removeEntry(entry: Entry<T>): void {
+    removeEntry(entry: Entry<TElement>): void {
         const entryIndex = this.entries.indexOf(entry);
 
         if (entryIndex >= 0) {
@@ -138,7 +156,7 @@ export class FormattingElementList<T extends TreeAdapterTypeMap> {
     }
 
     //Search
-    getElementEntryInScopeWithTagName(tagName: string): ElementEntry<T> | null {
+    getElementEntryInScopeWithTagName(tagName: string): ElementEntry<TElement> | null {
         const entry = this.entries.find(
             (entry) => entry.type === EntryType.Marker || this.treeAdapter.getTagName(entry.element) === tagName
         );
@@ -146,9 +164,12 @@ export class FormattingElementList<T extends TreeAdapterTypeMap> {
         return entry && entry.type === EntryType.Element ? entry : null;
     }
 
-    getElementEntry(element: T['element']): ElementEntry<T> | null {
-        return this.entries.find(
-            (entry) => entry.type === EntryType.Element && entry.element === element
-        ) as ElementEntry<T> | null;
+    getElementEntry(element: TElement): ElementEntry<TElement> | null {
+        return (
+            this.entries.find(
+                (entry): entry is ElementEntry<TElement> =>
+                    entry.type === EntryType.Element && entry.element === element
+            ) ?? null
+        );
     }
 }

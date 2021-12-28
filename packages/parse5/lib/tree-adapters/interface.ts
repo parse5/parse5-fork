@@ -1,30 +1,6 @@
 import { DOCUMENT_MODE, NAMESPACES } from '../common/html.js';
 import type { Attribute, ElementLocation } from '../common/token.js';
 
-export interface TreeAdapterTypeMap<
-    Node = unknown,
-    ParentNode = unknown,
-    ChildNode = unknown,
-    Document = unknown,
-    DocumentFragment = unknown,
-    Element = unknown,
-    CommentNode = unknown,
-    TextNode = unknown,
-    Template = unknown,
-    DocumentType = unknown
-> {
-    node: Node;
-    parentNode: ParentNode;
-    childNode: ChildNode;
-    document: Document;
-    documentFragment: DocumentFragment;
-    element: Element;
-    commentNode: CommentNode;
-    textNode: TextNode;
-    template: Template;
-    documentType: DocumentType;
-}
-
 /**
  * Tree adapter is a set of utility functions that provides minimal required abstraction layer beetween parser and a specific AST format.
  * Note that `TreeAdapter` is not designed to be a general purpose AST manipulation library. You can build such library
@@ -32,14 +8,22 @@ export interface TreeAdapterTypeMap<
  *
  * @see The default implementation {@link parse5.treeAdapters.default}
  */
-export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> {
+export interface TreeAdapter<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+> {
     /**
      * Copies attributes to the given element. Only attributes that are not yet present in the element are copied.
      *
      * @param recipient - Element to copy attributes into.
      * @param attrs - Attributes to copy.
      */
-    adoptAttributes(recipient: T['element'], attrs: Attribute[]): void;
+    adoptAttributes(recipient: TElement, attrs: Attribute[]): void;
 
     /**
      * Appends a child node to the given parent node.
@@ -47,24 +31,27 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param parentNode - Parent node.
      * @param newNode -  Child node.
      */
-    appendChild(parentNode: T['parentNode'], newNode: T['childNode']): void;
+    appendChild(
+        parentNode: TDocument | TElement | TDocumentFragment,
+        newNode: TCommentNode | TDocumentType | TElement | TTextNode
+    ): void;
 
     /**
      * Creates a comment node.
      *
      * @param data - Comment text.
      */
-    createCommentNode(data: string): T['commentNode'];
+    createCommentNode(data: string): TCommentNode;
 
     /**
      * Creates a document node.
      */
-    createDocument(): T['document'];
+    createDocument(): TDocument;
 
     /**
      * Creates a document fragment node.
      */
-    createDocumentFragment(): T['documentFragment'];
+    createDocumentFragment(): TDocumentFragment;
 
     /**
      * Creates an element node.
@@ -73,14 +60,14 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param namespaceURI - Namespace of the element.
      * @param attrs - Attribute name-value pair array. Foreign attributes may contain `namespace` and `prefix` fields as well.
      */
-    createElement(tagName: string, namespaceURI: NAMESPACES, attrs: Attribute[]): T['element'];
+    createElement(tagName: string, namespaceURI: NAMESPACES, attrs: Attribute[]): TElement;
 
     /**
      * Removes a node from its parent.
      *
      * @param node - Node to remove.
      */
-    detachNode(node: T['childNode']): void;
+    detachNode(node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode): void;
 
     /**
      * Returns the given element's attributes in an array, in the form of name-value pairs.
@@ -88,98 +75,106 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      *
      * @param element - Element.
      */
-    getAttrList(element: T['element']): Attribute[];
+    getAttrList(element: TElement): Attribute[];
 
     /**
      * Returns the given node's children in an array.
      *
      * @param node - Node.
      */
-    getChildNodes(node: T['parentNode']): T['childNode'][];
+    getChildNodes(
+        node: TDocument | TElement | TDocumentFragment
+    ): Array<TCommentNode | TDocumentType | TElement | TTextNode>;
 
     /**
      * Returns the given comment node's content.
      *
      * @param commentNode - Comment node.
      */
-    getCommentNodeContent(commentNode: T['commentNode']): string;
+    getCommentNodeContent(commentNode: TCommentNode): string;
 
     /**
      * Returns [document mode](https://dom.spec.whatwg.org/#concept-document-limited-quirks).
      *
      * @param document - Document node.
      */
-    getDocumentMode(document: T['document']): DOCUMENT_MODE;
+    getDocumentMode(document: TDocument): DOCUMENT_MODE;
 
     /**
      * Returns the given document type node's name.
      *
      * @param doctypeNode - Document type node.
      */
-    getDocumentTypeNodeName(doctypeNode: T['documentType']): string;
+    getDocumentTypeNodeName(doctypeNode: TDocumentType): string;
 
     /**
      * Returns the given document type node's public identifier.
      *
      * @param doctypeNode - Document type node.
      */
-    getDocumentTypeNodePublicId(doctypeNode: T['documentType']): string;
+    getDocumentTypeNodePublicId(doctypeNode: TDocumentType): string;
 
     /**
      * Returns the given document type node's system identifier.
      *
      * @param doctypeNode - Document type node.
      */
-    getDocumentTypeNodeSystemId(doctypeNode: T['documentType']): string;
+    getDocumentTypeNodeSystemId(doctypeNode: TDocumentType): string;
 
     /**
      * Returns the first child of the given node.
      *
      * @param node - Node.
      */
-    getFirstChild(node: T['parentNode']): T['childNode'] | null;
+    getFirstChild(
+        node: TDocument | TElement | TDocumentFragment
+    ): TCommentNode | TDocumentType | TElement | TTextNode | null;
 
     /**
      * Returns the given element's namespace.
      *
      * @param element - Element.
      */
-    getNamespaceURI(element: T['element']): NAMESPACES;
+    getNamespaceURI(element: TElement): NAMESPACES;
 
     /**
      * Returns the given node's source code location information.
      *
      * @param node - Node.
      */
-    getNodeSourceCodeLocation(node: T['node']): ElementLocation | undefined | null;
+    getNodeSourceCodeLocation(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode
+    ): ElementLocation | undefined | null;
 
     /**
      * Returns the given node's parent.
      *
      * @param node - Node.
      */
-    getParentNode(node: T['node']): T['parentNode'] | null;
+    getParentNode(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode
+    ): TDocument | TElement | TDocumentFragment | null;
 
     /**
      * Returns the given element's tag name.
      *
      * @param element - Element.
      */
-    getTagName(element: T['element']): string;
+    getTagName(element: TElement): string;
 
     /**
      * Returns the given text node's content.
      *
      * @param textNode - Text node.
      */
-    getTextNodeContent(textNode: T['textNode']): string;
+    getTextNodeContent(textNode: TTextNode): string;
 
     /**
      * Returns the `<template>` element content element.
      *
      * @param templateElement - `<template>` element.
      */
-    getTemplateContent(templateElement: T['template']): T['documentFragment'];
+    getTemplateContent(templateElement: TTemplate): TDocumentFragment;
 
     /**
      * Inserts a child node to the given parent node before the given reference node.
@@ -188,7 +183,11 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param newNode -  Child node.
      * @param referenceNode -  Reference node.
      */
-    insertBefore(parentNode: T['parentNode'], newNode: T['childNode'], referenceNode: T['childNode']): void;
+    insertBefore(
+        parentNode: TDocument | TElement | TDocumentFragment,
+        newNode: TCommentNode | TDocumentType | TElement | TTextNode,
+        referenceNode: TCommentNode | TDocumentType | TElement | TTextNode
+    ): void;
 
     /**
      * Inserts text into a node. If the last child of the node is a text node, the provided text will be appended to the
@@ -197,7 +196,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param parentNode - Node to insert text into.
      * @param text - Text to insert.
      */
-    insertText(parentNode: T['parentNode'], text: string): void;
+    insertText(parentNode: TDocument | TElement | TDocumentFragment, text: string): void;
 
     /**
      * Inserts text into a sibling node that goes before the reference node. If this sibling node is the text node,
@@ -208,35 +207,47 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param text - Text to insert.
      * @param referenceNode - Node to insert text before.
      */
-    insertTextBefore(parentNode: T['parentNode'], text: string, referenceNode: T['childNode']): void;
+    insertTextBefore(
+        parentNode: TDocument | TElement | TDocumentFragment,
+        text: string,
+        referenceNode: TCommentNode | TDocumentType | TElement | TTextNode
+    ): void;
 
     /**
      * Determines if the given node is a comment node.
      *
      * @param node - Node.
      */
-    isCommentNode(node: T['node']): node is T['commentNode'];
+    isCommentNode(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode
+    ): node is TCommentNode;
 
     /**
      * Determines if the given node is a document type node.
      *
      * @param node - Node.
      */
-    isDocumentTypeNode(node: T['node']): node is T['documentType'];
+    isDocumentTypeNode(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode
+    ): node is TDocumentType;
 
     /**
      * Determines if the given node is an element.
      *
      * @param node - Node.
      */
-    isElementNode(node: T['node']): node is T['element'];
+    isElementNode(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode
+    ): node is TElement;
 
     /**
      * Determines if the given node is a text node.
      *
      * @param node - Node.
      */
-    isTextNode(node: T['node']): node is T['textNode'];
+    isTextNode(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode
+    ): node is TTextNode;
 
     /**
      * Sets the [document mode](https://dom.spec.whatwg.org/#concept-document-limited-quirks).
@@ -244,7 +255,7 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param document - Document node.
      * @param mode - Document mode.
      */
-    setDocumentMode(document: T['document'], mode: DOCUMENT_MODE): void;
+    setDocumentMode(document: TDocument, mode: DOCUMENT_MODE): void;
 
     /**
      * Sets the document type. If the `document` already contains a document type node, the `name`, `publicId` and `systemId`
@@ -256,21 +267,27 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param publicId - Document type public identifier.
      * @param systemId - Document type system identifier.
      */
-    setDocumentType(document: T['document'], name: string, publicId: string, systemId: string): void;
+    setDocumentType(document: TDocument, name: string, publicId: string, systemId: string): void;
 
     /**
      * Attaches source code location information to the node.
      *
      * @param node - Node.
      */
-    setNodeSourceCodeLocation(node: T['node'], location: ElementLocation | null): void;
+    setNodeSourceCodeLocation(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode,
+        location: ElementLocation | null
+    ): void;
 
     /**
      * Updates the source code location information of the node.
      *
      * @param node - Node.
      */
-    updateNodeSourceCodeLocation(node: T['node'], location: Partial<ElementLocation>): void;
+    updateNodeSourceCodeLocation(
+        node: TCommentNode | TDocument | TDocumentFragment | TDocumentType | TElement | TTextNode,
+        location: Partial<ElementLocation>
+    ): void;
 
     /**
      * Sets the `<template>` element content element.
@@ -278,5 +295,5 @@ export interface TreeAdapter<T extends TreeAdapterTypeMap = TreeAdapterTypeMap> 
      * @param templateElement - `<template>` element.
      * @param contentElement -  Content element.
      */
-    setTemplateContent(templateElement: T['template'], contentElement: T['documentFragment']): void;
+    setTemplateContent(templateElement: TTemplate, contentElement: TDocumentFragment): void;
 }
