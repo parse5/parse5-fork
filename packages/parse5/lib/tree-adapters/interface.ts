@@ -14,7 +14,8 @@ declare const adapterKey: unique symbol;
  * All the node types.
  *
  * The default values should be opaque types. TS doesn't support opaque types,
- * so we use unique objects instead.
+ * so we use unique objects instead. Their one key is optional, so adapters
+ * can assign any kind of object they want to.
  *
  * The unions below include `Record<string, unknown>`, to make it impossible
  * to get a type through narrowing. This way, DOMs can have additional node types
