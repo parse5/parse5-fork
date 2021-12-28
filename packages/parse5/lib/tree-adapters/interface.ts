@@ -1,21 +1,38 @@
 import { DOCUMENT_MODE, NAMESPACES } from '../common/html.js';
 import type { Attribute, ElementLocation } from '../common/token.js';
 
+/**
+ * A unique symbol that doesn't actually exist,
+ * to help with creating opaque types for the type map.
+ *
+ * This way, we will never have colliding keys with the
+ * default values of the tree map.
+ */
+declare const adapterKey: unique symbol;
+
+/**
+ * All the node types.
+ *
+ * The default values should be opaque types. TS doesn't support opaque types,
+ * so we use unique objects instead. Their one key is optional, so adapters
+ * can assign any kind of object they want to.
+ *
+ * The unions below include `Record<string, unknown>`, to make it impossible
+ * to get a type through narrowing. This way, DOMs can have additional node types
+ * that aren't listed here.
+ */
 export interface TreeAdapterTypeMap<
-    Node = unknown,
-    ParentNode = unknown,
-    ChildNode = unknown,
-    Document = unknown,
-    DocumentFragment = unknown,
-    Element = unknown,
-    CommentNode = unknown,
-    TextNode = unknown,
-    Template = unknown,
-    DocumentType = unknown
+    Document = { [adapterKey]?: 'Document' },
+    DocumentFragment = { [adapterKey]?: 'DocumentFragment' },
+    Element = { [adapterKey]?: 'Element' },
+    CommentNode = { [adapterKey]?: 'CommentNode' },
+    TextNode = { [adapterKey]?: 'TextNode' },
+    Template = { [adapterKey]?: 'Template' },
+    DocumentType = { [adapterKey]?: 'DocumentType' },
+    ParentNode = Document | DocumentFragment | Element | Template | Record<string, unknown>,
+    ChildNode = Element | Template | CommentNode | TextNode | DocumentType | Record<string, unknown>,
+    Node = ParentNode | ChildNode
 > {
-    node: Node;
-    parentNode: ParentNode;
-    childNode: ChildNode;
     document: Document;
     documentFragment: DocumentFragment;
     element: Element;
@@ -23,6 +40,9 @@ export interface TreeAdapterTypeMap<
     textNode: TextNode;
     template: Template;
     documentType: DocumentType;
+    parentNode: ParentNode;
+    childNode: ChildNode;
+    node: Node;
 }
 
 /**

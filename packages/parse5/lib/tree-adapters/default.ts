@@ -97,16 +97,16 @@ export type ChildNode = Element | Template | CommentNode | TextNode | DocumentTy
 export type Node = ParentNode | ChildNode;
 
 export type DefaultTreeAdapterMap = TreeAdapterTypeMap<
-    Node,
-    ParentNode,
-    ChildNode,
     Document,
     DocumentFragment,
     Element,
     CommentNode,
     TextNode,
     Template,
-    DocumentType
+    DocumentType,
+    ParentNode,
+    ChildNode,
+    Node
 >;
 
 //Node construction
