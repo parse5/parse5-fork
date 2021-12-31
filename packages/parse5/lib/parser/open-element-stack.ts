@@ -1,5 +1,5 @@
 import { TAG_ID as $, NAMESPACES as NS, isNumberedHeader } from '../common/html.js';
-import type { TreeAdapter, TreeAdapterTypeMap } from '../tree-adapters/interface';
+import type { TreeAdapter } from '../tree-adapters/interface';
 
 //Element utils
 const IMPLICIT_END_TAG_REQUIRED = new Set([$.DD, $.DT, $.LI, $.OPTGROUP, $.OPTION, $.P, $.RB, $.RP, $.RT, $.RTC]);
@@ -42,36 +42,54 @@ const TABLE_CONTEXT = [$.TABLE, $.TEMPLATE, $.HTML];
 const TABLE_CELLS = [$.TD, $.TH];
 
 //Stack of open elements
-export class OpenElementStack<T extends TreeAdapterTypeMap> {
-    items: T['parentNode'][] = [];
+export class OpenElementStack<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+> {
+    items: TElement[] = [];
     tagIDs: $[] = [];
-    current: T['parentNode'];
+    current: TElement | TDocument;
     stackTop = -1;
     tmplCount = 0;
 
     currentTagId = $.UNKNOWN;
 
-    get currentTmplContentOrNode(): T['parentNode'] {
-        return this._isInTemplate() ? this.treeAdapter.getTemplateContent(this.current) : this.current;
+    get currentTmplContentOrNode(): TElement | TDocumentFragment | TDocument {
+        return this._isTemplate(this.currentTagId, this.current)
+            ? this.treeAdapter.getTemplateContent(this.current)
+            : this.current;
     }
 
     constructor(
-        document: T['document'],
-        private treeAdapter: TreeAdapter<T>,
-        private onItemPush: (node: T['parentNode'], tid: number, isTop: boolean) => void,
-        private onItemPop: (node: T['parentNode'], isTop: boolean) => void
+        document: TDocument,
+        private treeAdapter: TreeAdapter<
+            TDocument,
+            TElement,
+            TDocumentType,
+            TCommentNode,
+            TTextNode,
+            TDocumentFragment,
+            TTemplate
+        >,
+        private onItemPush: (node: TElement | TDocument, tid: number, isTop: boolean) => void,
+        private onItemPop: (node: TElement | TDocument, isTop: boolean) => void
     ) {
         this.current = document;
     }
 
     //Index of element
-    private _indexOf(element: T['element']): number {
+    private _indexOf(element: TElement): number {
         return this.items.lastIndexOf(element, this.stackTop);
     }
 
     //Update current element
-    private _isInTemplate(): boolean {
-        return this.currentTagId === $.TEMPLATE && this.treeAdapter.getNamespaceURI(this.current) === NS.HTML;
+    private _isTemplate(tagId: $, node: TElement | TDocument): node is TTemplate {
+        return tagId === $.TEMPLATE && this.treeAdapter.getNamespaceURI(node as TElement) === NS.HTML;
     }
 
     private _updateCurrentElement(): void {
@@ -80,7 +98,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
     }
 
     //Mutations
-    push(element: T['element'], tagID: $): void {
+    push(element: TElement, tagID: $): void {
         this.stackTop++;
 
         this.items[this.stackTop] = element;
@@ -88,7 +106,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
         this.tagIDs[this.stackTop] = tagID;
         this.currentTagId = tagID;
 
-        if (this._isInTemplate()) {
+        if (this._isTemplate(this.currentTagId, this.current)) {
             this.tmplCount++;
         }
 
@@ -97,7 +115,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
 
     pop(): void {
         const popped = this.current;
-        if (this.tmplCount > 0 && this._isInTemplate()) {
+        if (this.tmplCount > 0 && this._isTemplate(this.currentTagId, this.current)) {
             this.tmplCount--;
         }
 
@@ -107,7 +125,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
         this.onItemPop(popped, true);
     }
 
-    replace(oldElement: T['element'], newElement: T['element']): void {
+    replace(oldElement: TElement, newElement: TElement): void {
         const idx = this._indexOf(oldElement);
 
         this.items[idx] = newElement;
@@ -117,7 +135,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
         }
     }
 
-    insertAfter(referenceElement: T['element'], newElement: T['element'], newElementID: $): void {
+    insertAfter(referenceElement: TElement, newElement: TElement, newElementID: $): void {
         const insertionIdx = this._indexOf(referenceElement) + 1;
 
         this.items.splice(insertionIdx, 0, newElement);
@@ -145,7 +163,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
         while (this.stackTop >= idx) {
             const popped = this.current;
 
-            if (this.tmplCount > 0 && this._isInTemplate()) {
+            if (this.tmplCount > 0 && this._isTemplate(this.currentTagId, this.current)) {
                 this.tmplCount -= 1;
             }
 
@@ -156,7 +174,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
         }
     }
 
-    popUntilElementPopped(element: T['element']): void {
+    popUntilElementPopped(element: TElement): void {
         const idx = this._indexOf(element);
         this.shortenToLength(idx < 0 ? 0 : idx);
     }
@@ -207,7 +225,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
         this.clearBackTo(TABLE_ROW_CONTEXT, NS.HTML);
     }
 
-    remove(element: T['element']): void {
+    remove(element: TElement): void {
         const idx = this._indexOf(element);
 
         if (idx >= 0) {
@@ -224,16 +242,16 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
     }
 
     //Search
-    tryPeekProperlyNestedBodyElement(): T['element'] | null {
+    tryPeekProperlyNestedBodyElement(): TElement | null {
         //Properly nested <body> element (should be second element in stack).
         return this.stackTop >= 1 && this.tagIDs[1] === $.BODY ? this.items[1] : null;
     }
 
-    contains(element: T['element']): boolean {
+    contains(element: TElement): boolean {
         return this._indexOf(element) > -1;
     }
 
-    getCommonAncestor(element: T['element']): T['element'] | null {
+    getCommonAncestor(element: TElement): TElement | null {
         const elementIdx = this._indexOf(element) - 1;
 
         return elementIdx >= 0 ? this.items[elementIdx] : null;
@@ -390,7 +408,7 @@ export class OpenElementStack<T extends TreeAdapterTypeMap> {
 
     generateImpliedEndTagsWithExclusion(exclusionTagName: string): void {
         while (
-            this.treeAdapter.getTagName(this.current) !== exclusionTagName &&
+            this.treeAdapter.getTagName(this.current as TElement) !== exclusionTagName &&
             IMPLICIT_END_TAG_REQUIRED_THOROUGHLY.has(this.currentTagId)
         ) {
             this.pop();

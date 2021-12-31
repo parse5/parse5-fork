@@ -1,7 +1,5 @@
 import { Parser, ParserOptions } from './parser/index.js';
 import { Serializer, SerializerOptions } from './serializer/index.js';
-import type { DefaultTreeAdapterMap } from './tree-adapters/default.js';
-import type { TreeAdapterTypeMap } from './tree-adapters/interface.js';
 
 export { ParserOptions } from './parser/index.js';
 export { SerializerOptions } from './serializer/index.js';
@@ -25,10 +23,18 @@ export { SerializerOptions } from './serializer/index.js';
  * console.log(document.childNodes[1].tagName); //> 'html'
  *```
  */
-export function parse<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
+export function parse<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
     html: string,
-    options?: ParserOptions<T>
-): T['document'] {
+    options?: ParserOptions<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>
+): TDocument {
     const parser = new Parser(options);
 
     return parser.parse(html);
@@ -57,22 +63,56 @@ export function parse<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
  * @param options Parsing options.
  * @returns DocumentFragment
  */
-export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
-    fragmentContext: T['parentNode'] | null,
+export function parseFragment<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    fragmentContext: TElement | null,
     html: string,
-    options: ParserOptions<T>
-): T['documentFragment'];
-export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
+    options: ParserOptions<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>
+): TDocumentFragment;
+export function parseFragment<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
     html: string,
-    options?: ParserOptions<T>
-): T['documentFragment'];
-export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
-    fragmentContext: T['parentNode'] | null | string,
-    html?: string | ParserOptions<T>,
-    options?: ParserOptions<T>
-): T['documentFragment'] {
+    options?: ParserOptions<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>
+): TDocumentFragment;
+export function parseFragment<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    fragmentContext: TElement | null | string,
+    html?:
+        | string
+        | ParserOptions<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>,
+    options?: ParserOptions<TDocument, TElement, TDocumentType, TCommentNode, TTextNode, TDocumentFragment, TTemplate>
+): TDocumentFragment {
     if (typeof fragmentContext === 'string') {
-        options = html as ParserOptions<T>;
+        options = html as ParserOptions<
+            TDocument,
+            TElement,
+            TDocumentType,
+            TCommentNode,
+            TTextNode,
+            TDocumentFragment,
+            TTemplate
+        >;
         html = fragmentContext;
         fragmentContext = null;
     }
@@ -104,9 +144,25 @@ export function parseFragment<T extends TreeAdapterTypeMap = DefaultTreeAdapterM
  * @param node Node to serialize.
  * @param options Serialization options.
  */
-export function serialize<T extends TreeAdapterTypeMap = DefaultTreeAdapterMap>(
-    node: T['parentNode'],
-    options: SerializerOptions<T>
+export function serialize<
+    TDocument,
+    TElement,
+    TDocumentType,
+    TCommentNode,
+    TTextNode,
+    TDocumentFragment,
+    TTemplate extends TElement
+>(
+    node: TDocument | TElement | TDocumentFragment,
+    options: SerializerOptions<
+        TDocument,
+        TElement,
+        TDocumentType,
+        TCommentNode,
+        TTextNode,
+        TDocumentFragment,
+        TTemplate
+    >
 ): string {
     const serializer = new Serializer(node, options);
 
